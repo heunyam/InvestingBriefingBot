@@ -1,0 +1,24 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets
+.env
+
+# Local runtime
+logs/
+.ruff_cache/
+.DS_Store
+
+# Daily portfolio snapshots (personal)
+app/data/*.json
+
+# launchd machine logs
+launchd/*.log

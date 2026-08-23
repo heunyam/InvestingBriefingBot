@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.gimsejun.investingbriefingbot.daily</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/make</string>
+        <string>-C</string>
+        <string>/Users/gimsejun/dev/InvestingBriefingBot</string>
+        <string>daily</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>7</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/gimsejun/dev/InvestingBriefingBot/launchd/daily.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/gimsejun/dev/InvestingBriefingBot/launchd/daily.stderr.log</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

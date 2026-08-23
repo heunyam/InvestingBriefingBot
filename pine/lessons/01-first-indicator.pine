@@ -1,0 +1,6 @@
+//@version=6
+indicator("01 First Indicator", overlay = true)
+
+// close is a series: one value per bar (the candle's closing price).
+// plot() draws that series on the chart as a line.
+plot(close, title = "Close", color = color.blue, linewidth = 2)
