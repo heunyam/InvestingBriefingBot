@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from app.outbound import discord
-from apps.briefing.app.services.formatter import format_message
+from app.services.formatter import format_message
 from app.collector.main import collect_data
 from app.models.asset import AssetSummary
 

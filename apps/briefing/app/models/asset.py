@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
-from app.models.db import DATA_DIR, Daily, daily_table
+from app.models.db import DATA_DIR, Doc, asset_summary_table
 
 
 class AssetSummary(BaseModel):
@@ -27,11 +27,11 @@ class AssetSummary(BaseModel):
 
     def save(self) -> None:
         doc = self.model_dump(mode="json")
-        daily_table().upsert(doc, Daily.date == doc["date"])
+        asset_summary_table().upsert(doc, Doc.date == doc["date"])
 
     @classmethod
     def load(cls, date_: Date) -> "AssetSummary":
-        rows = daily_table().search(Daily.date == date_.isoformat())
+        rows = asset_summary_table().search(Doc.date == date_.isoformat())
         if not rows:
             raise FileNotFoundError(f"No data found for {date_}")
         return cls.model_validate(rows[0])

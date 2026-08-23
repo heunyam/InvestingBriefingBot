@@ -4,10 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-RANDOM_WEBHOOK_URL = os.getenv("DISCORD_RANDOM_WEBHOOK_URL")
 DAILY_WEBHOOK_URL = os.getenv("DISCORD_DAILY_WEBHOOK_URL")
-NEWS_WEBHOOK_URL = os.getenv("DISCORD_NEWS_WEBHOOK_URL")
-
 
 def send_message(message: str) -> None:
     response = requests.post(RANDOM_WEBHOOK_URL, json={"content": message})

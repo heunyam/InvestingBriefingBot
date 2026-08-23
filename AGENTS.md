@@ -18,7 +18,7 @@ Daily job: collect Toss + Bybit snapshots, persist to TinyDB (`apps/briefing/app
 - Entry: `make daily` → `PYTHONPATH=apps/briefing` → `commands/daily.py`
 - Import paths stay `app.*` and `commands.*`. Do not rename those packages.
 - Secrets stay in `.env` (never commit). Copy from `.env.example`.
-- Snapshots are `AssetSummary` documents in TinyDB table `daily`, keyed by `date` (KST, former JSON filename). Use `AssetSummary.save` / `AssetSummary.load`. Do not add a `store/` package.
+- Snapshots are `AssetSummary` documents in TinyDB table `asset_summary`, keyed by `date` (KST, former JSON filename). Use `AssetSummary.save` / `AssetSummary.load`. Do not add a `store/` package.
 - `apps/briefing/app/data/*.json` and `apps/briefing/launchd/*.log` are gitignored. Do not force-add them.
 - After changing the launchd plist, run `make load` so `~/Library/LaunchAgents/` matches.
 

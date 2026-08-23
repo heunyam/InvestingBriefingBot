@@ -1,6 +1,6 @@
 from decimal import Decimal
-from apps.briefing.app.models.asset import AssetSummary
-from apps.briefing.app.utils.decimal import to_decimal
+from app.models.asset import AssetSummary
+from app.utils.decimal import to_decimal
 
 
 def _trend_emoji(value: Decimal) -> str:

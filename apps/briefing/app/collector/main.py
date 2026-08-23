@@ -1,9 +1,8 @@
-from apps.briefing.app.collector import toss
-from apps.briefing.app.collector import bybit
-from apps.briefing.app.utils.time import kst_now
+from app.collector import toss
+from app.collector import bybit
+from app.utils.time import kst_now
 
-
-from apps.briefing.app.models.asset import AssetSummary
+from app.models.asset import AssetSummary
 
 
 def collect_data() -> AssetSummary:
