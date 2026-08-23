@@ -9,12 +9,13 @@ def _trend_emoji(value: Decimal) -> str:
 
 def _line(value: Decimal, prev_value: Decimal) -> str:
     value = to_decimal(value)
-    diff = to_decimal(prev_value - value)
+    prev_value = to_decimal(prev_value)
+    diff = to_decimal(value - prev_value)
 
     emoji = _trend_emoji(diff)
-    percent = to_decimal(diff / prev_value)
+    percent = to_decimal(diff / prev_value * 100) if prev_value > 0 else Decimal("0")
 
-    return f"{to_decimal(value)} {emoji} ({diff} / {percent}%)"
+    return f"{value} {emoji} ({diff} / {percent}%)"
 
 
 def format_message(asset: AssetSummary, prev: AssetSummary | None) -> str:
