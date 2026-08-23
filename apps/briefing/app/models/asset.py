@@ -1,11 +1,9 @@
-import json
-import os
-from datetime import date as Date, datetime
+from datetime import date as Date, datetime, timedelta
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
-from app.models.db import DATA_DIR, Doc, asset_summary_table
+from app.models.db import Doc, asset_summary_table, weekly_table
 
 
 class AssetSummary(BaseModel):
@@ -29,6 +27,11 @@ class AssetSummary(BaseModel):
         doc = self.model_dump(mode="json")
         asset_summary_table().upsert(doc, Doc.date == doc["date"])
 
+    def save_week(self, week_start: Date) -> None:
+        doc = self.model_dump(mode="json")
+        doc["week_start"] = week_start.isoformat()
+        weekly_table().upsert(doc, Doc.week_start == doc["week_start"])
+
     @classmethod
     def load(cls, date_: Date) -> "AssetSummary":
         rows = asset_summary_table().search(Doc.date == date_.isoformat())
@@ -37,19 +40,20 @@ class AssetSummary(BaseModel):
         return cls.model_validate(rows[0])
 
     @classmethod
-    def migrate_json_files(cls) -> int:
-        if not os.path.isdir(DATA_DIR):
-            return 0
+    def all(cls) -> list["AssetSummary"]:
+        return [cls.model_validate(row) for row in asset_summary_table().all()]
 
-        count = 0
-        for name in sorted(os.listdir(DATA_DIR)):
-            if name == "db.json" or not name.endswith(".json"):
-                continue
-            path = os.path.join(DATA_DIR, name)
-            with open(path) as f:
-                data = json.load(f)
-            if "date" not in data:
-                data["date"] = name.removesuffix(".json")
-            cls.model_validate(data).save()
-            count += 1
-        return count
+    @classmethod
+    def all_weeks(cls) -> list["AssetSummary"]:
+        return [cls.model_validate(row) for row in weekly_table().all()]
+
+    @classmethod
+    def for_week(
+        cls, week_start: Date, rows: list["AssetSummary"]
+    ) -> "AssetSummary | None":
+        by_date = {row.date: row for row in rows}
+        for offset in range(7):
+            hit = by_date.get(week_start + timedelta(days=offset))
+            if hit is not None:
+                return hit
+        return None
