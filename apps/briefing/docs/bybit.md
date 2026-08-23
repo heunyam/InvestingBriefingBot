@@ -81,7 +81,7 @@ bybit_cash + bybit_coin     ≈ totalEquity + fund_cash
 ## 로컬 테스트
 
 ```shell
-uv run python -m app.collectors.bybit
+PYTHONPATH=apps/briefing uv run python -m app.collectors.bybit
 ```
 
 `totalEquity` 대비 Cash+Coin 오차가 `$0.05`를 넘으면 exit code 1.

@@ -1,6 +1,6 @@
 ---
-description: Pine Script v6 conventions for TradingView files in pine/
-globs: pine/**/*.pine
+description: Pine Script v6 conventions for TradingView files in apps/pine/
+globs: apps/pine/**/*.pine
 alwaysApply: false
 ---
 

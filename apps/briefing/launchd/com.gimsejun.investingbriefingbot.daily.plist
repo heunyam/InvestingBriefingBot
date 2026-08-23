@@ -22,10 +22,10 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/Users/gimsejun/dev/InvestingBriefingBot/launchd/daily.stdout.log</string>
+    <string>/Users/gimsejun/dev/InvestingBriefingBot/apps/briefing/launchd/daily.stdout.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/gimsejun/dev/InvestingBriefingBot/launchd/daily.stderr.log</string>
+    <string>/Users/gimsejun/dev/InvestingBriefingBot/apps/briefing/launchd/daily.stderr.log</string>
 
     <key>RunAtLoad</key>
     <false/>

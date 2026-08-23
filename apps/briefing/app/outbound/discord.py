@@ -21,12 +21,14 @@ def send_daily(message: str) -> None:
 
 DISCORD_LIMIT = 2000
 
+
 def send_news(content: str):
     if not content:
         return
     for chunk in _split(content):
         r = requests.post(NEWS_WEBHOOK_URL, json={"content": chunk})
         r.raise_for_status()
+
 
 def _split(content: str) -> list[str]:
     if len(content) <= DISCORD_LIMIT:

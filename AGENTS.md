@@ -4,27 +4,32 @@ Personal investing monorepo. Two areas live here and stay separate:
 
 | Area | Path | Runtime |
 | --- | --- | --- |
-| Daily briefing bot | `app/`, `commands/`, `launchd/` | Python 3.14, local Mac |
-| TradingView scripts | `pine/` | Pine Script v6, TradingView cloud |
+| Daily briefing bot | `apps/briefing/` | Python 3.14, local Mac |
+| TradingView scripts | `apps/pine/` | Pine Script v6, TradingView cloud |
 
 Do not mix Python bot code with Pine. Do not add TradingView API clients unless asked.
 
+Root stays repo-level only (`makefile`, `pyproject.toml`, `.env*`, docs). Apps live under `apps/`.
+
 ## Python bot
 
-Daily job: collect Toss + Bybit snapshots, persist JSON under `app/data/`, post a Discord summary.
+Daily job: collect Toss + Bybit snapshots, persist to TinyDB (`apps/briefing/app/data/db.json`), post a Discord summary.
 
-- Entry: `make daily` → `commands/daily.py`
+- Entry: `make daily` → `PYTHONPATH=apps/briefing` → `commands/daily.py`
+- Import paths stay `app.*` and `commands.*`. Do not rename those packages.
 - Secrets stay in `.env` (never commit). Copy from `.env.example`.
-- `app/data/*.json` and `launchd/*.log` are gitignored. Do not force-add them.
+- Snapshots are `AssetSummary` documents in TinyDB table `daily`, keyed by `date` (KST, former JSON filename). Use `AssetSummary.save` / `AssetSummary.load`. Do not add a `store/` package.
+- `apps/briefing/app/data/*.json` and `apps/briefing/launchd/*.log` are gitignored. Do not force-add them.
+- After changing the launchd plist, run `make load` so `~/Library/LaunchAgents/` matches.
 
-## Pine Script (`pine/`)
+## Pine Script (`apps/pine/`)
 
 Write **Pine Script v6 only** (`//@version=6`). There is no local compiler or backtester. The user copies a `.pine` file into TradingView’s Pine Editor, saves it, and clicks **Add to chart**.
 
 ### Layout
 
 ```
-pine/
+apps/pine/
   lessons/      # numbered tutorials; learn in order
   indicators/   # reusable overlays / panes
   strategies/   # order logic + backtests (later)
@@ -52,7 +57,7 @@ pine/
 
 Stay on the current lesson until the user wants the next one.
 
-1. `pine/lessons/01-first-indicator.pine` — declaration, series, `plot`
+1. `apps/pine/lessons/01-first-indicator.pine` — declaration, series, `plot`
 2. Inputs (`input.int`) and `ta.macd`
 3. Overlay vs pane, `hline`, colors
 4. Conditions, `bgcolor`, `alertcondition`

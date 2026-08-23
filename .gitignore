@@ -18,7 +18,7 @@ logs/
 .DS_Store
 
 # Daily portfolio snapshots (personal)
-app/data/*.json
+apps/briefing/app/data/*.json
 
 # launchd machine logs
-launchd/*.log
+apps/briefing/launchd/*.log

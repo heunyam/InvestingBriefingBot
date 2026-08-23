@@ -1,4 +1,3 @@
-import json
 import os
 from decimal import Decimal
 from enum import StrEnum
@@ -8,27 +7,31 @@ from pybit.unified_trading import HTTP
 
 load_dotenv()
 
-API_KEY = os.getenv("BYBIT_API_KEY")
-API_SECRET = os.getenv("BYBIT_API_SECRET")
+API_KEY = os.environ["BYBIT_API_KEY"]
+API_SECRET = os.environ["BYBIT_API_SECRET"]
+
 
 class AccountType(StrEnum):
     UNIFIED = "UNIFIED"
     FUND = "FUND"
 
 
-
-def d(v) -> Decimal:
+def _d(v) -> Decimal:
     return Decimal(str(v or 0))
 
 
 def _fetch_wallet_balance(session: HTTP) -> dict:
-    wallet = session.get_wallet_balance(accountType=AccountType.UNIFIED)["result"]["list"][0]
+    wallet = session.get_wallet_balance(accountType=AccountType.UNIFIED)["result"][
+        "list"
+    ][0]
 
     return wallet
 
 
 def _fetch_coins_balance(session: HTTP, account_type: AccountType) -> dict:
-    fund = session.get_coins_balance(accountType=account_type, coin="USDT,BYUSDT")["result"]["balance"]
+    fund = session.get_coins_balance(accountType=account_type, coin="USDT,BYUSDT")[
+        "result"
+    ]["balance"]
 
     return fund
 
@@ -40,18 +43,14 @@ def fetch() -> dict:
     fund = _fetch_coins_balance(session, AccountType.FUND)
     unified = _fetch_coins_balance(session, AccountType.UNIFIED)
 
-    unified_cash = sum([d(coin["transferBalance"]) for coin in unified])
-    fund_cash = sum([d(coin["transferBalance"]) for coin in fund])
+    unified_cash = sum([_d(coin["transferBalance"]) for coin in unified])
+    fund_cash = sum([_d(coin["transferBalance"]) for coin in fund])
 
-    unified_total = d(wallet["totalEquity"])
+    unified_total = _d(wallet["totalEquity"])
 
     coin = unified_total - unified_cash
     cash = unified_cash + fund_cash
-    return {
-        "cash_usd": cash,
-        "coin_usd": coin,
-        "total": unified_total+fund_cash
-    }
+    return {"cash": cash, "coin": coin, "total": unified_total + fund_cash}
 
 
 if __name__ == "__main__":
