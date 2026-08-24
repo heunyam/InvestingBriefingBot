@@ -585,6 +585,8 @@ def sync_open_positions(session=None) -> list[dict]:
         doc = find_open(symbol, side)
         if doc is None:
             opened = int(pos.get("createdTime") or pos.get("updatedTime") or now_ms)
+            if opened < SYNC_START_MS:
+                continue
             doc = trade.new_trade(
                 trade_id=str(uuid.uuid4()),
                 symbol=symbol,
@@ -592,6 +594,8 @@ def sync_open_positions(session=None) -> list[dict]:
                 opened_at_ms=opened,
                 now_ms=now_ms,
             )
+        elif int(doc.get("opened_at_ms") or 0) < SYNC_START_MS:
+            continue
         doc["position"] = {
             "size": str(size),
             "leverage": str(pos.get("leverage") or "") or None,

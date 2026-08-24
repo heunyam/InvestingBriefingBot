@@ -68,6 +68,36 @@ class TestTradeSync(unittest.TestCase):
         self.assertEqual(kinds, {"TP", "SL"})
         self.assertTrue(trade_sync.needs_user_review(doc))
 
+    def test_sync_open_positions_skips_before_sync_start(self):
+        self._epoch.stop()
+        try:
+            with patch.object(trade_sync, "SYNC_START_MS", 1_000_000):
+                http = FakeHTTP(
+                    positions=[
+                        {
+                            "symbol": "OLDUSDT",
+                            "side": "Buy",
+                            "size": "1",
+                            "avgPrice": "10",
+                            "createdTime": "999999",
+                        },
+                        {
+                            "symbol": "NEWUSDT",
+                            "side": "Sell",
+                            "size": "2",
+                            "avgPrice": "20",
+                            "createdTime": "1000000",
+                        },
+                    ]
+                )
+                docs = trade_sync.sync_open_positions(session=http)
+                self.assertEqual(len(docs), 1)
+                self.assertEqual(docs[0]["symbol"], "NEWUSDT")
+                self.assertEqual(docs[0]["opened_at_ms"], 1_000_000)
+        finally:
+            self._epoch = patch.object(trade_sync, "SYNC_START_MS", 0)
+            self._epoch.start()
+
     def test_tx_open_close(self):
         http = FakeHTTP(
             tx_pages=[
