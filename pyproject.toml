@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "anthropic>=0.86.0",
-    "discord.py>=2.4.0",
     "pybit>=5.14.0",
     "pydantic>=2.12.5",
     "python-dotenv>=1.2.2",
@@ -18,4 +17,3 @@ dependencies = [
 dev = [
     "ruff>=0.15.6",
 ]
-

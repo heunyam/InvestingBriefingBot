@@ -4,9 +4,9 @@ from tinydb import Query, TinyDB
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 DB_PATH = os.path.join(DATA_DIR, "db.json")
-TABLE = "asset_summary"
+ASSET_SUMMARY_TABLE = "asset_summary"
 WEEKLY_TABLE = "weekly"
-_LEGACY_TABLE = "daily"
+TRADES_TABLE = "trades"
 
 Doc = Query()
 
@@ -18,24 +18,16 @@ def get_db() -> TinyDB:
     if _db is None:
         os.makedirs(DATA_DIR, exist_ok=True)
         _db = TinyDB(DB_PATH)
-        _migrate_legacy_table(_db)
     return _db
 
 
-def _migrate_legacy_table(db: TinyDB) -> None:
-    if _LEGACY_TABLE not in db.tables():
-        return
-    old = db.table(_LEGACY_TABLE)
-    new = db.table(TABLE)
-    if len(old) and not len(new):
-        for doc in old:
-            new.insert(dict(doc))
-    db.drop_table(_LEGACY_TABLE)
-
-
 def asset_summary_table():
-    return get_db().table(TABLE)
+    return get_db().table(ASSET_SUMMARY_TABLE)
 
 
 def weekly_table():
     return get_db().table(WEEKLY_TABLE)
+
+
+def trades_table():
+    return get_db().table(TRADES_TABLE)

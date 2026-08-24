@@ -19,6 +19,7 @@ logs/
 
 # Daily portfolio snapshots (personal)
 apps/briefing/app/data/*.json
+apps/briefing/app/data/charts/
 
 # launchd machine logs
 apps/briefing/launchd/*.log

@@ -1,3 +1,12 @@
+"""주간 브리핑.
+
+저장된 일일 스냅샷으로 최근 주간 행을 upsert하고,
+DISCORD_DAILY_WEBHOOK_URL 로 주간 요약을 보낸다. launchd는 월요일 07:10(daily 다음).
+같은 `make weekly`가 이어서 `trades-report`를 같은 webhook에 별도 메시지로 보낸다.
+
+  make weekly
+"""
+
 from datetime import timedelta
 
 from app.outbound import discord

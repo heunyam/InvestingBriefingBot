@@ -15,7 +15,8 @@ Root stays repo-level only (`makefile`, `pyproject.toml`, `.env*`, docs). Apps l
 
 Daily job: collect Toss + Bybit snapshots, persist to TinyDB (`apps/briefing/app/data/db.json`), post a Discord summary.
 
-- Entry: `make daily` → `PYTHONPATH=apps/briefing` → `commands/daily.py`. Weekly: `make weekly` → `commands/weekly.py` (Mondays 07:10 after daily).
+- Entry: `make daily` → `PYTHONPATH=apps/briefing` → `commands/daily.py` (07:00). Weekly: `make weekly` → `commands/weekly.py` (Mondays 07:10 after daily). Trades: `make trades` (daily 06:50) → `commands/trades.py`.
+- Trades: `make trades` syncs Bybit fills from **2026-08-25 00:00 KST** onward and posts unreviewed trades to `DISCORD_TRADE_WEBHOOK_URL`. Save a review with `make trades-review ARGS="--id <prefix> --entry '...' --exit '...'"` (TinyDB + TRADE webhook edit; review text is not yet in the Discord body). `make trades-report` posts 7d CLOSED stats to `DISCORD_DAILY_WEBHOOK_URL` as its own message (same Monday 07:10 `make weekly` job; does not overwrite per-trade `discord.message_id`). Discord App/Bot is later; webhook only for Discord.
 - Import paths stay `app.*` and `commands.*`. Do not rename those packages.
 - Secrets stay in `.env` (never commit). Copy from `.env.example`.
 - Snapshots are `AssetSummary` documents in TinyDB table `asset_summary` (daily, keyed by `date`) and `weekly` (one row per week, upsert on `week_start`). Use `AssetSummary.save` / `save_week` / `all` / `all_weeks`.
