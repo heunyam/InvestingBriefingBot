@@ -204,7 +204,9 @@ class TestTradeSyncStep2(unittest.TestCase):
         )
         docs = trade_sync.sync_open_positions(session=http)
         self.assertEqual(len(docs), 1)
-        kinds = [(p["kind"], p["mode"], p["trigger_price"]) for p in docs[0]["protections"]]
+        kinds = [
+            (p["kind"], p["mode"], p["trigger_price"]) for p in docs[0]["protections"]
+        ]
         self.assertIn(("SL", "FULL", "62000"), kinds)
         self.assertIn(("TP", "PARTIAL", "67000"), kinds)
         self.assertIn(("TP", "PARTIAL", "69000"), kinds)
@@ -268,14 +270,14 @@ class TestTradeSyncStep2(unittest.TestCase):
 
     def test_tx_idempotent(self):
         page = _tx_page([_trade_row("1", "ETHUSDT", "Buy", "1", "100", 100)])
-        trade_sync.sync_transaction_log(
-            session=FakeHTTP(tx_pages=[page]), end_ms=300
-        )
+        trade_sync.sync_transaction_log(session=FakeHTTP(tx_pages=[page]), end_ms=300)
         n1 = len(trade.all()[0]["events"])
         trade_sync.set_last_synced_ms(0)
         trade_sync.sync_transaction_log(
             session=FakeHTTP(
-                tx_pages=[_tx_page([_trade_row("1", "ETHUSDT", "Buy", "1", "100", 100)])]
+                tx_pages=[
+                    _tx_page([_trade_row("1", "ETHUSDT", "Buy", "1", "100", 100)])
+                ]
             ),
             end_ms=300,
         )
@@ -391,7 +393,13 @@ class TestTradeSyncStep2(unittest.TestCase):
                             "transactionTime": str(eight),
                         },
                         _trade_row(
-                            "2", "MUUSDT", "Sell", "5", "911", eight + 50, cashFlow="-10"
+                            "2",
+                            "MUUSDT",
+                            "Sell",
+                            "5",
+                            "911",
+                            eight + 50,
+                            cashFlow="-10",
                         ),
                     ]
                 )
@@ -401,7 +409,9 @@ class TestTradeSyncStep2(unittest.TestCase):
         docs = trade.all()
         self.assertEqual(len(docs), 1)
         self.assertEqual(docs[0]["status"], "CLOSED")
-        self.assertEqual([e["event_type"] for e in docs[0]["events"]], ["OPEN", "CLOSE"])
+        self.assertEqual(
+            [e["event_type"] for e in docs[0]["events"]], ["OPEN", "CLOSE"]
+        )
 
     def test_purge_legacy_funding_adds_closes_trade(self):
         eight = trade_sync.FUNDING_INTERVAL_MS
@@ -474,7 +484,9 @@ class TestTradeSyncStep2(unittest.TestCase):
             def get_closed_pnl(self, **kwargs):
                 return {
                     "result": {
-                        "list": [{"symbol": "ETHUSDT", "leverage": "5", "closedPnl": "1"}]
+                        "list": [
+                            {"symbol": "ETHUSDT", "leverage": "5", "closedPnl": "1"}
+                        ]
                     }
                 }
 
@@ -516,9 +528,7 @@ class TestSyncStartFloor(unittest.TestCase):
             tx_pages=[
                 _tx_page(
                     [
-                        _trade_row(
-                            "old", "BTCUSDT", "Buy", "1", "100", epoch - 1000
-                        ),
+                        _trade_row("old", "BTCUSDT", "Buy", "1", "100", epoch - 1000),
                         _trade_row(
                             "new",
                             "BTCUSDT",
@@ -547,15 +557,15 @@ class TestSyncStartFloor(unittest.TestCase):
         self.assertEqual(len(docs), 1)
         self.assertEqual(docs[0]["status"], "CLOSED")
         source_ids = {
-            sid
-            for ev in docs[0]["events"]
-            for sid in (ev.get("source_ids") or [])
+            sid for ev in docs[0]["events"] for sid in (ev.get("source_ids") or [])
         }
         self.assertNotIn("old", source_ids)
         self.assertIn("new", source_ids)
 
     def test_sync_all_noop_before_start(self):
-        with patch.object(trade_sync, "_ms_now", return_value=trade_sync.SYNC_START_MS - 1):
+        with patch.object(
+            trade_sync, "_ms_now", return_value=trade_sync.SYNC_START_MS - 1
+        ):
             result = trade_sync.sync_all(session=FakeHTTP())
         self.assertEqual(result["synced"], [])
         self.assertEqual(trade.all(), [])

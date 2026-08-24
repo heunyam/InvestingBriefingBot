@@ -68,8 +68,25 @@ class TestTradeAnalytics(unittest.TestCase):
 
     def test_mixed_win_loss_and_zero_pnl(self):
         docs = [
-            _closed("w1", "BTCUSDT", opened=1, closed=10, amount="10", result="WIN", fee="1", reviewed=True),
-            _closed("l1", "BTCUSDT", opened=2, closed=20, amount="-5", result="LOSS", funding="0.5"),
+            _closed(
+                "w1",
+                "BTCUSDT",
+                opened=1,
+                closed=10,
+                amount="10",
+                result="WIN",
+                fee="1",
+                reviewed=True,
+            ),
+            _closed(
+                "l1",
+                "BTCUSDT",
+                opened=2,
+                closed=20,
+                amount="-5",
+                result="LOSS",
+                funding="0.5",
+            ),
             _closed("z1", "ETHUSDT", opened=3, closed=30, amount="0", result=None),
             _closed("n1", "ETHUSDT", opened=4, closed=40, amount=None, result=None),
             _closed("w2", "ETHUSDT", opened=5, closed=50, amount="5", result="WIN"),
@@ -114,11 +131,34 @@ class TestTradeAnalytics(unittest.TestCase):
     def test_period_and_symbol_filter(self):
         now = 10 * trade_analytics.DAY_MS
         docs = [
-            _closed("a", "BTCUSDT", opened=1, closed=now - 2 * trade_analytics.DAY_MS, amount="1", result="WIN"),
-            _closed("b", "ETHUSDT", opened=1, closed=now - 2 * trade_analytics.DAY_MS, amount="2", result="WIN"),
-            _closed("c", "BTCUSDT", opened=1, closed=now - 20 * trade_analytics.DAY_MS, amount="9", result="WIN"),
+            _closed(
+                "a",
+                "BTCUSDT",
+                opened=1,
+                closed=now - 2 * trade_analytics.DAY_MS,
+                amount="1",
+                result="WIN",
+            ),
+            _closed(
+                "b",
+                "ETHUSDT",
+                opened=1,
+                closed=now - 2 * trade_analytics.DAY_MS,
+                amount="2",
+                result="WIN",
+            ),
+            _closed(
+                "c",
+                "BTCUSDT",
+                opened=1,
+                closed=now - 20 * trade_analytics.DAY_MS,
+                amount="9",
+                result="WIN",
+            ),
         ]
-        week = trade_analytics.summarize(docs, period="7d", now_ms=now, symbol="BTCUSDT")
+        week = trade_analytics.summarize(
+            docs, period="7d", now_ms=now, symbol="BTCUSDT"
+        )
         self.assertEqual(week["n"], 1)
         self.assertEqual(week["net_pnl"], Decimal("1"))
 

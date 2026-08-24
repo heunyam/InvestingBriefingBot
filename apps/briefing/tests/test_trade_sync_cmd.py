@@ -4,7 +4,6 @@ from unittest.mock import patch
 from tinydb import TinyDB
 from tinydb.storages import MemoryStorage
 
-from app.collector import bybit_trades
 from app.models import trade
 from app.models import db as db_mod
 from app.services import trade_message, trade_sync
@@ -135,7 +134,7 @@ class TestTradeSync(unittest.TestCase):
             ]
         )
         self._db.table(trade_sync.META_TABLE).truncate()
-        docs = trade_sync.sync_transaction_log(session=http, end_ms=300)
+        _ = trade_sync.sync_transaction_log(session=http, end_ms=300)
         closed = [d for d in trade.all() if d["status"] == "CLOSED"]
         self.assertEqual(len(closed), 1)
         self.assertEqual(closed[0]["symbol"], "ETHUSDT")
@@ -162,9 +161,7 @@ class TestTradeSync(unittest.TestCase):
             }
         }
         self._db.table(trade_sync.META_TABLE).truncate()
-        trade_sync.sync_transaction_log(
-            session=FakeHTTP(tx_pages=[page]), end_ms=300
-        )
+        trade_sync.sync_transaction_log(session=FakeHTTP(tx_pages=[page]), end_ms=300)
         n1 = len(trade.all()[0]["events"])
         self._db.table(trade_sync.META_TABLE).truncate()
         trade_sync.sync_transaction_log(

@@ -14,7 +14,7 @@ load_dotenv()
 def _session(session=None) -> HTTP:
     if session is not None:
         return session
-    
+
     return HTTP(
         api_key=os.environ["BYBIT_API_KEY"],
         api_secret=os.environ["BYBIT_API_SECRET"],
@@ -105,7 +105,9 @@ def fetch_transaction_log_page(
     return _rows(resp), _cursor(resp)
 
 
-def fetch_transaction_log(session=None, start_ms: int = 0, end_ms: int = 0) -> list[dict]:
+def fetch_transaction_log(
+    session=None, start_ms: int = 0, end_ms: int = 0
+) -> list[dict]:
     rows = []
     window_start = start_ms
     while window_start <= end_ms:

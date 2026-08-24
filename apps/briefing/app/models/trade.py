@@ -10,7 +10,9 @@ def event_key(symbol, seq, exec_id=None, order_id=None) -> str:
     return f"{symbol}:{seq}:{extra}"
 
 
-def new_trade(trade_id: str, symbol: str, side: str, opened_at_ms: int, now_ms: int) -> dict:
+def new_trade(
+    trade_id: str, symbol: str, side: str, opened_at_ms: int, now_ms: int
+) -> dict:
     return {
         "trade_id": trade_id,
         "symbol": symbol,
@@ -82,7 +84,9 @@ def recompute(doc: dict) -> dict:
     entry = weighted_avg(entry_fills)
     exit_ = weighted_avg(exit_fills)
     amount = None
-    if doc.get("events") and (cash_flow != ZERO or funding != ZERO or fee != ZERO or exit_fills):
+    if doc.get("events") and (
+        cash_flow != ZERO or funding != ZERO or fee != ZERO or exit_fills
+    ):
         amount = cash_flow + funding - fee
 
     closed = size == ZERO and bool(exit_fills)

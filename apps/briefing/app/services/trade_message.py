@@ -44,7 +44,9 @@ def _fmt_money(value) -> str:
     return f"{int(n):,}"
 
 
-def _fmt_roe(pnl: Decimal, price: Decimal, qty: Decimal, leverage: Decimal) -> str | None:
+def _fmt_roe(
+    pnl: Decimal, price: Decimal, qty: Decimal, leverage: Decimal
+) -> str | None:
     notional = price * qty
     if notional == ZERO or leverage == ZERO:
         return None
@@ -77,8 +79,10 @@ def _symbol_line(doc: dict) -> str:
     side = doc.get("side")
     kr = _kr_side(side)
     lev = _leverage(doc)
-    lev_s = f"(x{int(lev)})" if lev != ZERO and lev == lev.to_integral_value() else (
-        f"(x{lev})" if lev != ZERO else ""
+    lev_s = (
+        f"(x{int(lev)})"
+        if lev != ZERO and lev == lev.to_integral_value()
+        else (f"(x{lev})" if lev != ZERO else "")
     )
     return f"{_dot(side)} {kr}: {symbol}{lev_s}"
 
@@ -117,10 +121,14 @@ def format_trade_message(doc: dict) -> str:
 
 
 def _header_time_price(doc: dict, last: dict) -> tuple[str, str]:
-    price = last.get("price") or (doc.get("prices") or {}).get("exit") or (
-        doc.get("prices") or {}
-    ).get("entry")
-    ts = last.get("occurred_at_ms") or doc.get("closed_at_ms") or doc.get("opened_at_ms")
+    price = (
+        last.get("price")
+        or (doc.get("prices") or {}).get("exit")
+        or (doc.get("prices") or {}).get("entry")
+    )
+    ts = (
+        last.get("occurred_at_ms") or doc.get("closed_at_ms") or doc.get("opened_at_ms")
+    )
     return _fmt_price(price) if price not in (None, "") else "-", _fmt_ms(ts)
 
 
@@ -181,7 +189,12 @@ def _format_flat(doc: dict, last: dict) -> str:
         f"📍 시장가: {market}",
         f"💰 실현: {_fmt_money(pnl)}",
     ]
-    roe = _fmt_roe(pnl, _d(last.get("price") or (doc.get("prices") or {}).get("exit")), qty, _leverage(doc))
+    roe = _fmt_roe(
+        pnl,
+        _d(last.get("price") or (doc.get("prices") or {}).get("exit")),
+        qty,
+        _leverage(doc),
+    )
     if roe is not None:
         lines.append(f"📈 ROE: {roe}")
     lines.extend(["", f"⏰ {when}"])

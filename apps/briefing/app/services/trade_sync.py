@@ -134,7 +134,9 @@ def _active_order_status(status: str) -> bool:
     return s in ("", "new", "untriggered", "active", "created")
 
 
-def protections_from_snapshot(position: dict, orders: list[dict] | None = None) -> list[dict]:
+def protections_from_snapshot(
+    position: dict, orders: list[dict] | None = None
+) -> list[dict]:
     """Replace-style ACTIVE protections from position full TP/SL + open stop orders."""
     now_ms = _ms_now()
     symbol = position.get("symbol") or ""
@@ -177,7 +179,11 @@ def protections_from_snapshot(position: dict, orders: list[dict] | None = None) 
         oid = str(order.get("orderId") or "")
         if not oid:
             continue
-        trigger = order.get("triggerPrice") or order.get("takeProfit") or order.get("stopLoss")
+        trigger = (
+            order.get("triggerPrice")
+            or order.get("takeProfit")
+            or order.get("stopLoss")
+        )
         if not trigger:
             continue
         items.append(
@@ -371,9 +377,7 @@ def _flag_ineligible_until_first_flat(window_start_ms: int) -> None:
         events = first.get("events") or []
         first_type = events[0].get("event_type") if events else None
         opened = first.get("opened_at_ms") or 0
-        mid_start = opened < window_start_ms or (
-            bool(events) and first_type != "OPEN"
-        )
+        mid_start = opened < window_start_ms or (bool(events) and first_type != "OPEN")
         if not mid_start:
             continue
         first["stats_eligible"] = False
@@ -470,9 +474,7 @@ def sync_transaction_log(
     purged = purge_funding_like_events()
     end_ms = end_ms or _ms_now()
     last = get_last_synced_ms()
-    span = lookback_ms or (
-        BACKFILL_LOOKBACK_MS if backfill else DEFAULT_LOOKBACK_MS
-    )
+    span = lookback_ms or (BACKFILL_LOOKBACK_MS if backfill else DEFAULT_LOOKBACK_MS)
     if last is None or backfill:
         start_ms = max(0, end_ms - span)
     else:
@@ -488,12 +490,9 @@ def sync_transaction_log(
     trade_rows = [
         r
         for r in rows
-        if _is_trade_row(r)
-        and int(r.get("transactionTime") or 0) >= SYNC_START_MS
+        if _is_trade_row(r) and int(r.get("transactionTime") or 0) >= SYNC_START_MS
     ]
-    trade_rows.sort(
-        key=lambda r: (int(r.get("transactionTime") or 0), _fill_index(r))
-    )
+    trade_rows.sort(key=lambda r: (int(r.get("transactionTime") or 0), _fill_index(r)))
 
     known = set()
     for doc in trade.all():

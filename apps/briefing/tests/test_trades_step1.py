@@ -46,9 +46,7 @@ class TestBybitTrades(unittest.TestCase):
         }
         page2 = {"result": {"list": [{"id": "b"}], "nextPageCursor": ""}}
         http = FakeHTTP([page1, page2])
-        rows = bybit_trades.fetch_transaction_log(
-            session=http, start_ms=0, end_ms=1000
-        )
+        rows = bybit_trades.fetch_transaction_log(session=http, start_ms=0, end_ms=1000)
         self.assertEqual([r["id"] for r in rows], ["a", "b"])
         self.assertEqual(http.calls[1][1]["cursor"], "c1")
 
