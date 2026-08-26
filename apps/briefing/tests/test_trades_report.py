@@ -220,7 +220,7 @@ class TestTradeReportCli(unittest.TestCase):
         self.assertTrue(content.startswith("```\n"))
         self.assertTrue(content.endswith("\n```"))
         saved = trade.load("w1")
-        self.assertIsNone((saved.get("discord") or {}).get("message_id"))
+        self.assertEqual((saved.get("discord") or {}).get("messages") or [], [])
 
     def test_format_matches_layout(self):
         stats = trade_analytics.summarize(trade.all(), period="all", now_ms=100)

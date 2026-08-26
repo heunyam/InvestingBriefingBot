@@ -25,19 +25,21 @@ class TestTradesReviewCli(unittest.TestCase):
         db_mod._db = self._orig
 
     def test_save_by_prefix_stdout_only(self):
-        with patch("app.outbound.discord_trade.upsert_trade_message") as upsert:
-            trades_review.app(
-                [
-                    "--id",
-                    "abc12345",
-                    "--entry",
-                    "breakout",
-                    "--exit",
-                    "target",
-                    "--stdout-only",
-                ]
-            )
-        upsert.assert_not_called()
+        with patch("app.outbound.discord_trade.send_trade") as send:
+            with patch("app.outbound.discord_trade.edit_trade") as edit:
+                trades_review.app(
+                    [
+                        "--id",
+                        "abc12345",
+                        "--entry",
+                        "breakout",
+                        "--exit",
+                        "target",
+                        "--stdout-only",
+                    ]
+                )
+        send.assert_not_called()
+        edit.assert_not_called()
         saved = trade.load("abc12345ffff")
         self.assertEqual(saved["review"]["entry_reason"], "breakout")
         self.assertEqual(saved["review"]["exit_reason"], "target")

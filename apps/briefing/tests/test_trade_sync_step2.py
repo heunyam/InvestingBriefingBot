@@ -50,6 +50,8 @@ def _trade_row(id_, symbol, side, qty, price, t, **extra):
     }
     if extra.get("size") is not None:
         row["size"] = str(extra["size"])
+    if extra.get("orderId") is not None:
+        row["orderId"] = str(extra["orderId"])
     return row
 
 
@@ -252,6 +254,15 @@ class TestTradeSyncStep2(unittest.TestCase):
         pending = trade.new_trade("pend0001", "BTCUSDT", "LONG", 1, 1)
         pending["prices"]["entry"] = "100"
         pending["position"] = {"size": "1", "leverage": "2"}
+        pending["events"] = [
+            {
+                "event_key": "BTCUSDT:1:p1",
+                "event_type": "OPEN",
+                "price": "100",
+                "quantity": "1",
+                "occurred_at_ms": 1,
+            }
+        ]
         trade.save(pending)
         done = trade.new_trade("done0001", "ETHUSDT", "LONG", 1, 1)
         done["status"] = "CLOSED"
@@ -259,14 +270,130 @@ class TestTradeSyncStep2(unittest.TestCase):
             "entry_reason": "breakout",
             "exit_reason": "target",
         }
+        done["events"] = [
+            {
+                "event_key": "ETHUSDT:1:d1",
+                "event_type": "OPEN",
+                "price": "1",
+                "quantity": "1",
+                "occurred_at_ms": 1,
+            }
+        ]
         trade.save(done)
         with patch(
-            "app.outbound.discord_trade.upsert_trade_message", return_value="mid"
-        ) as mock_up:
+            "app.outbound.discord_trade.send_trade", return_value="mid"
+        ) as mock_send:
             posted = trades_cmd.notify_pending_reviews(trade.all())
         self.assertEqual(len(posted), 1)
         self.assertEqual(posted[0]["trade_id"], "pend0001")
-        mock_up.assert_called_once()
+        mock_send.assert_called_once()
+
+    def test_discord_posts_each_size_event(self):
+        doc = trade.new_trade("multi001", "BTCUSDT", "LONG", 1, 1)
+        doc["prices"] = {"entry": "100", "exit": "110"}
+        doc["position"] = {"size": "0", "leverage": "2"}
+        doc["status"] = "CLOSED"
+        doc["pnl"] = {"amount": "10", "result": "WIN"}
+        doc["events"] = [
+            {
+                "event_key": "k-open",
+                "event_type": "OPEN",
+                "price": "100",
+                "quantity": "1",
+                "occurred_at_ms": 1,
+                "cash_flow": "0",
+            },
+            {
+                "event_key": "k-add",
+                "event_type": "ADD",
+                "price": "101",
+                "quantity": "1",
+                "occurred_at_ms": 300_000,  # > COALESCE_GAP: intentional separate add
+                "cash_flow": "0",
+            },
+            {
+                "event_key": "k-close",
+                "event_type": "CLOSE",
+                "price": "110",
+                "quantity": "2",
+                "occurred_at_ms": 600_000,
+                "cash_flow": "10",
+            },
+        ]
+        trade.save(doc)
+        ids = iter(["m1", "m2", "m3"])
+        with patch(
+            "app.outbound.discord_trade.send_trade",
+            side_effect=lambda *_a, **_k: next(ids),
+        ) as mock_send:
+            posted = trades_cmd.notify_pending_reviews([doc])
+        self.assertEqual(len(posted), 1)
+        self.assertEqual(mock_send.call_count, 3)
+        saved = trade.load("multi001")
+        self.assertEqual(
+            [m["event_key"] for m in saved["discord"]["messages"]],
+            ["k-open", "k-add", "k-close"],
+        )
+
+    def test_discord_coalesces_same_order_id(self):
+        doc = trade.new_trade("ord001", "QQQUSDT", "LONG", 1, 1)
+        doc["prices"] = {"entry": "500", "exit": None}
+        doc["position"] = {"size": "20", "leverage": "5"}
+        doc["events"] = [
+            {
+                "event_key": "k1",
+                "event_type": "OPEN",
+                "order_id": "limit-1",
+                "price": "500",
+                "quantity": "0.5",
+                "occurred_at_ms": 1000,
+            },
+            {
+                "event_key": "k2",
+                "event_type": "ADD",
+                "order_id": "limit-1",
+                "price": "500.1",
+                "quantity": "0.7",
+                "occurred_at_ms": 1001,
+            },
+            {
+                "event_key": "k3",
+                "event_type": "ADD",
+                "order_id": "limit-1",
+                "price": "500.2",
+                "quantity": "18.8",
+                "occurred_at_ms": 1002,
+            },
+        ]
+        trade.save(doc)
+        with patch(
+            "app.outbound.discord_trade.send_trade", return_value="mid-burst"
+        ) as mock_send:
+            posted = trades_cmd.notify_pending_reviews([doc])
+        self.assertEqual(len(posted), 1)
+        mock_send.assert_called_once()
+        body = mock_send.call_args[0][0]
+        self.assertIn("롱 진입", body)
+        self.assertIn("📦 수량: 20", body)
+        saved = trade.load("ord001")
+        self.assertEqual(len(saved["events"]), 3)
+        self.assertEqual(len(saved["discord"]["messages"]), 1)
+        self.assertEqual(
+            saved["discord"]["messages"][0]["event_keys"],
+            ["k1", "k2", "k3"],
+        )
+
+    def test_sync_stores_order_id(self):
+        page = _tx_page(
+            [
+                _trade_row(
+                    "1", "ETHUSDT", "Buy", "1", "100", 100, orderId="oid-abc", size="1"
+                )
+            ]
+        )
+        trade_sync.sync_transaction_log(session=FakeHTTP(tx_pages=[page]), end_ms=300)
+        ev = trade.all()[0]["events"][0]
+        self.assertEqual(ev["order_id"], "oid-abc")
 
     def test_tx_idempotent(self):
         page = _tx_page([_trade_row("1", "ETHUSDT", "Buy", "1", "100", 100)])

@@ -260,6 +260,7 @@ def _apply_fill(
     occurred_at_ms: int,
     source_id: str,
     now_ms: int,
+    order_id: str | None = None,
 ) -> list[dict]:
     touched = []
     book = books.setdefault(symbol, {"signed": ZERO, "doc": None})
@@ -283,6 +284,7 @@ def _apply_fill(
                 occurred_at_ms=occurred_at_ms,
                 source_id=f"{source_id}:close",
                 now_ms=now_ms,
+                order_id=order_id,
             )
         )
         open_qty = abs(nxt)
@@ -300,6 +302,7 @@ def _apply_fill(
                 occurred_at_ms=occurred_at_ms,
                 source_id=f"{source_id}:open",
                 now_ms=now_ms,
+                order_id=order_id,
             )
         )
         return touched
@@ -333,23 +336,22 @@ def _apply_fill(
         book["doc"] = doc
 
     fill_qty = abs(delta)
-    trade.upsert_event(
-        doc,
-        {
-            "event_key": trade.event_key(symbol, occurred_at_ms, exec_id=source_id),
-            "event_type": etype,
-            "occurred_at_ms": occurred_at_ms,
-            "price": str(price),
-            "quantity": str(fill_qty),
-            "fee": str(fee),
-            "realized_pnl": "0",
-            "cash_flow": str(cash_flow),
-            "funding": str(funding),
-            "source_type": "TRADE",
-            "source_ids": [source_id],
-        },
-        now_ms,
-    )
+    event = {
+        "event_key": trade.event_key(symbol, occurred_at_ms, exec_id=source_id),
+        "event_type": etype,
+        "occurred_at_ms": occurred_at_ms,
+        "price": str(price),
+        "quantity": str(fill_qty),
+        "fee": str(fee),
+        "realized_pnl": "0",
+        "cash_flow": str(cash_flow),
+        "funding": str(funding),
+        "source_type": "TRADE",
+        "source_ids": [source_id],
+    }
+    if order_id:
+        event["order_id"] = str(order_id)
+    trade.upsert_event(doc, event, now_ms)
     book["signed"] = nxt
     pos = doc.setdefault("position", {})
     pos["size"] = str(abs(nxt))
@@ -464,6 +466,40 @@ def stamp_leverage(session=None) -> list[dict]:
     return touched
 
 
+def _events_by_source_id() -> dict[str, tuple[dict, int]]:
+    """Map Bybit tx source id → (trade doc, event index)."""
+    out: dict[str, tuple[dict, int]] = {}
+    for doc in trade.all():
+        for i, ev in enumerate(doc.get("events") or []):
+            for sid in ev.get("source_ids") or []:
+                out[str(sid)] = (doc, i)
+    return out
+
+
+def backfill_order_ids_from_rows(trade_rows: list[dict]) -> list[dict]:
+    """Patch missing event.order_id from tx rows (known fills are otherwise skipped)."""
+    index = _events_by_source_id()
+    touched: dict[str, dict] = {}
+    for row in trade_rows:
+        source_id = str(row.get("id") or row.get("tradeId") or "")
+        order_id = str(row.get("orderId") or "").strip()
+        if not source_id or not order_id or source_id not in index:
+            continue
+        doc, idx = index[source_id]
+        events = list(doc.get("events") or [])
+        if idx >= len(events):
+            continue
+        ev = events[idx]
+        if ev.get("order_id"):
+            continue
+        events[idx] = {**ev, "order_id": order_id}
+        doc["events"] = events
+        touched[doc["trade_id"]] = doc
+    for doc in touched.values():
+        trade.save(doc)
+    return list(touched.values())
+
+
 def sync_transaction_log(
     session=None,
     end_ms: int | None = None,
@@ -494,6 +530,8 @@ def sync_transaction_log(
     ]
     trade_rows.sort(key=lambda r: (int(r.get("transactionTime") or 0), _fill_index(r)))
 
+    backfilled = backfill_order_ids_from_rows(trade_rows)
+
     known = set()
     for doc in trade.all():
         for ev in doc.get("events") or []:
@@ -510,8 +548,8 @@ def sync_transaction_log(
             signed = -signed
         books[symbol] = {"signed": signed, "doc": doc}
 
-    touched_ids = set()
-    touched = []
+    touched_ids = {doc["trade_id"] for doc in backfilled}
+    touched = list(backfilled)
     now_ms = _ms_now()
     for row in trade_rows:
         symbol = row.get("symbol") or ""
@@ -533,6 +571,7 @@ def sync_transaction_log(
                 int(row.get("transactionTime") or now_ms),
                 now_ms,
             )
+        order_id = str(row.get("orderId") or "").strip() or None
         for doc in _apply_fill(
             books,
             symbol=symbol,
@@ -545,6 +584,7 @@ def sync_transaction_log(
             occurred_at_ms=int(row.get("transactionTime") or now_ms),
             source_id=source_id,
             now_ms=now_ms,
+            order_id=order_id,
         ):
             if doc["trade_id"] not in touched_ids:
                 touched_ids.add(doc["trade_id"])

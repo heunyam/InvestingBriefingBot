@@ -1,6 +1,7 @@
 """매매 복기 저장 (CLI + TRADE webhook).
 
-TinyDB `review`를 채운다. message_id가 있으면 webhook 본문만 갱신한다.
+TinyDB `review`를 trade_id(OPEN 라운드트립)에 저장한다.
+Discord는 이벤트별 메시지로 이미 올라가 있으므로, 있으면 최신 메시지 본문만 갱신한다.
 
   make trades-review
   make trades-review ARGS="--id <trade_id접두> --entry '돌파' --exit '익절'"
@@ -57,10 +58,23 @@ def app(argv: list[str] | None = None) -> dict | None:
         print(trade_message.format_trade_message(doc))
         return doc
     content = trade_message.format_trade_message(doc)
-    message_id = discord_trade.upsert_trade_message(doc, content)
-    doc.setdefault("discord", {})["message_id"] = message_id
-    trade.save(doc)
-    print(f"discord_upserted={message_id}")
+    message_id = trade.latest_discord_message_id(doc)
+    if message_id:
+        message_id = discord_trade.edit_trade(message_id, content)
+        print(f"discord_edited={message_id}")
+    else:
+        message_id = discord_trade.send_trade(content)
+        # No event_key known for orphan review post; keep under messages as CLOSE-ish.
+        last = (doc.get("events") or [{}])[-1]
+        key = last.get("event_key") or f"review:{(doc.get('trade_id') or '')}"
+        trade.record_discord_message(
+            doc,
+            event_key=key,
+            message_id=message_id,
+            event_type=last.get("event_type") or "CLOSE",
+        )
+        trade.save(doc)
+        print(f"discord_posted={message_id}")
     return doc
 
 

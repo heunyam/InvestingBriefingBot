@@ -173,19 +173,42 @@ class TestTradeSync(unittest.TestCase):
         doc = trade.new_trade("abcdef12", "BTCUSDT", "LONG", 1, 1)
         doc["prices"]["entry"] = "100"
         doc["position"] = {"size": "1", "leverage": "2"}
+        doc["events"] = [
+            {
+                "event_key": "BTCUSDT:1:exec1",
+                "event_type": "OPEN",
+                "price": "100",
+                "quantity": "1",
+                "occurred_at_ms": 1,
+            }
+        ]
         text = trade_message.format_trade_message(doc)
         self.assertIn("진입", text)
         self.assertIn("BTCUSDT", text)
         with patch(
-            "app.outbound.discord_trade.upsert_trade_message", return_value="mid"
-        ) as mock_up:
+            "app.outbound.discord_trade.send_trade", return_value="mid"
+        ) as mock_send:
             from commands import trades as trades_cmd
 
             posted = trades_cmd.notify_pending_reviews([doc])
             self.assertEqual(len(posted), 1)
-            mock_up.assert_called_once()
+            mock_send.assert_called_once()
             saved = trade.load("abcdef12")
-            self.assertEqual(saved["discord"]["message_id"], "mid")
+            self.assertEqual(
+                saved["discord"]["messages"],
+                [
+                    {
+                        "event_key": "BTCUSDT:1:exec1",
+                        "event_keys": ["BTCUSDT:1:exec1"],
+                        "message_id": "mid",
+                        "event_type": "OPEN",
+                    }
+                ],
+            )
+            # Second run is idempotent per event_key.
+            posted2 = trades_cmd.notify_pending_reviews([saved])
+            self.assertEqual(posted2, [])
+            mock_send.assert_called_once()
 
 
 if __name__ == "__main__":

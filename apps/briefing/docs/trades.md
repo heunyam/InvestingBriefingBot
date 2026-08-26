@@ -14,7 +14,7 @@ Discord는 **webhook만** 쓴다 (`requests` + `DISCORD_*_WEBHOOK_URL`). Discord
 | `make trades-review` | 복기 텍스트를 TinyDB에 저장. webhook 본문 갱신 |
 | `make trades-report` | CLOSED 성과 리포트. 기본 최근 7일 → DAILY webhook |
 
-리포트를 `make trades`에 붙이지 않는다. 동기화와 기간 집계를 섞으면 개별 매매 메시지 `discord.message_id`를 덮어쓸 위험이 있다.
+리포트를 `make trades`에 붙이지 않는다. 동기화와 기간 집계를 섞으면 개별 매매 Discord `messages[]`를 건드릴 위험이 있다.
 
 ```text
 make trades
@@ -47,7 +47,7 @@ make trades-report ARGS="--backfill"
 3. TRADE 체결만 OPEN / ADD / PARTIAL_CLOSE / CLOSE로 넣는다. flat 전까지 같은 `trade_id`.
 4. 다시 진입하면 새 `trade_id`.
 5. 열린 포지션과 미체결 스탑으로 TP/SL(`FULL` / `PARTIAL` / trailing)을 덮어쓴다.
-6. `review.entry_reason`과 `review.exit_reason`이 없으면 TRADE webhook create/edit. 있으면 스킵.
+6. `review.entry_reason`과 `review.exit_reason`이 없으면, 아직 Discord에 안 올린 체결을 TRADE webhook으로 보낸다. TinyDB `events[]`는 exec 단위 유지. Discord만 같은 Bybit `orderId`(+ ENTRY=`OPEN`/`ADD` 또는 EXIT=`PARTIAL_CLOSE`/`CLOSE`)로 **1통**으로 합친다 (`discord.messages[].event_keys`). `orderId` 없으면 이벤트마다 1통. 복기가 있으면 스킵.
 7. hedge (`positionIdx != 0`)는 에러.
 
 메타 커서: TinyDB `trade_sync_meta` / `bybit_tx`.
@@ -62,7 +62,7 @@ make trades-review ARGS="--id a1b2c3d4 --entry '돌파' --exit '익절'"
 make trades-review ARGS="--id a1b2c3d4 --entry '돌파' --exit '익절' --chart ./shot.png"
 ```
 
-`--id`는 전체 `trade_id` 또는 고유한 접두. `--chart`는 선택. 저장 후 `message_id`가 있으면 같은 TRADE webhook 본문을 갱신한다. **본문에는 아직 entry/exit 문구를 넣지 않는다** (Discord Bot interaction 때 넣을 예정). 통계는 복기 여부와 무관하게 CLOSED를 쓴다.
+`--id`는 전체 `trade_id` 또는 고유한 접두. `--chart`는 선택. 복기는 **OPEN으로 생긴 `trade_id` 문서 하나**에만 저장한다. Discord에 올린 메시지가 있으면 **최신** webhook 본문만 갱신한다. **본문에는 아직 entry/exit 문구를 넣지 않는다** (Discord Bot interaction 때 넣을 예정). 통계는 복기 여부와 무관하게 CLOSED를 쓴다.
 
 ## 리포트 (`make trades-report`)
 
@@ -70,7 +70,7 @@ make trades-review ARGS="--id a1b2c3d4 --entry '돌파' --exit '익절' --chart 
 - `pnl.amount`가 `0`이거나 없으면 거래 수·승률 분모에서 제외.
 - `stats_eligible=false`인 건 제외. backfill(또는 첫 전체 lookback)에서 구간 시작 전에 이미 열려 있던 심볼은 첫 flat까지 이 플래그가 붙는다.
 - 승/패는 `pnl.result` (`WIN` / `LOSS`). Closed PnL API 행 단위 승률은 쓰지 않는다.
-- Discord는 `discord.send_daily`만 호출한다. TRADE webhook·매매 문서 `message_id`는 쓰지 않는다. 차트 attachment는 넣지 않는다.
+- Discord는 `discord.send_daily`만 호출한다. TRADE webhook·매매 문서 `discord.messages`는 쓰지 않는다. 차트 attachment는 넣지 않는다.
 - 스케줄: `make weekly`(월 07:10)가 주간 본문 다음에 기본 `--period 7d`로 한 번 더 보낸다. 수동 `make trades-report`도 같은 DAILY webhook이다.
 
 ### 지표
@@ -94,7 +94,7 @@ make trades-review ARGS="--id a1b2c3d4 --entry '돌파' --exit '익절' --chart 
 
 - **동기화 누락:** `make trades`를 다시 실행한다. `source_ids`로 체결은 멱등. 커서가 너무 앞이면 `--backfill`로 2년을 다시 훑는다.
 - **잘못된 첫 구간 통계:** backfill 뒤 `stats_eligible=false`인 첫 매매는 리포트에서 빠진다. 플래그를 수동으로 `true`로 바꾸면 다시 들어간다.
-- **미복기 메시지 중복:** 문서의 `discord.message_id`가 있으면 같은 webhook으로 edit.
+- **미복기 메시지 중복:** 같은 `event_key`는 `discord.messages`에 있으면 다시 보내지 않는다. 같은 `orderId` 분할체결은 Discord 1통.
 - **리포트가 매매 채널로 감:** `DISCORD_TRADE_WEBHOOK_URL`이 아니라 `DISCORD_DAILY_WEBHOOK_URL`인지 확인.
 - **TinyDB 손상:** `apps/briefing/app/data/*.json`은 gitignore. 로컬 백업을 복구한다.
 

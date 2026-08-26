@@ -2,7 +2,7 @@
 CLOSED 매매 성과 리포트.
 
 기간 지표를 stdout에 찍고, 기본은 DISCORD_DAILY_WEBHOOK_URL 로 보낸다
-(주간 브리핑과 같은 채널, 별도 메시지). TRADE webhook·매매 문서 message_id는 건드리지 않는다.
+(주간 브리핑과 같은 채널, 별도 메시지). TRADE webhook·매매 문서 discord.messages는 건드리지 않는다.
 
 make trades-report
 make trades-report ARGS="--period 30d"

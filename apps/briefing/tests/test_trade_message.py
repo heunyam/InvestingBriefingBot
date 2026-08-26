@@ -148,6 +148,32 @@ class TestTradeMessageFormat(unittest.TestCase):
             ),
         )
 
+    def test_add_formats_separate_from_open(self):
+        doc = trade.new_trade("t5", "ETHUSDT", "LONG", 1, 1)
+        doc["prices"]["entry"] = "2000"
+        doc["position"] = {"size": "500", "leverage": "5"}
+        open_ev = {
+            "event_key": "e-open",
+            "event_type": "OPEN",
+            "price": "2000",
+            "quantity": "200",
+            "occurred_at_ms": _ms("2026-06-01 10:00:00"),
+        }
+        add_ev = {
+            "event_key": "e-add",
+            "event_type": "ADD",
+            "price": "2010",
+            "quantity": "300",
+            "occurred_at_ms": _ms("2026-06-01 11:00:00"),
+        }
+        doc["events"] = [open_ev, add_ev]
+        open_text = trade_message.format_trade_message(doc, event=open_ev)
+        add_text = trade_message.format_trade_message(doc, event=add_ev)
+        self.assertIn("롱 진입", open_text)
+        self.assertIn("📦 수량: 200", open_text)
+        self.assertIn("롱 추가 진입", add_text)
+        self.assertIn("📦 수량: 200 → 500", add_text)
+
 
 if __name__ == "__main__":
     unittest.main()

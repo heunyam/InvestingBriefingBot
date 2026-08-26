@@ -43,9 +43,10 @@ def edit_trade(message_id: str, content: str) -> str:
     return str(response.json().get("id") or message_id)
 
 
-def upsert_trade_message(doc: dict, content: str) -> str:
-    discord = doc.get("discord") or {}
-    message_id = discord.get("message_id")
-    if message_id:
-        return edit_trade(message_id, content)
-    return send_trade(content)
+def delete_trade(message_id: str) -> None:
+    """Delete a webhook-owned trade message. 404 is ignored."""
+    url = _trade_webhook_url()
+    response = requests.delete(f"{url}/messages/{message_id}", timeout=30)
+    if response.status_code in (200, 204, 404):
+        return
+    response.raise_for_status()

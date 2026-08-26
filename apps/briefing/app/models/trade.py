@@ -23,7 +23,7 @@ def new_trade(
         "prices": {"entry": None, "exit": None},
         "pnl": {"amount": None, "result": None},
         "position": {"size": "0", "leverage": None},
-        "discord": {"message_id": None},
+        "discord": {"messages": []},
         "events": [],
         "protections": [],
         "review": None,
@@ -147,3 +147,88 @@ def load(trade_id: str) -> dict | None:
 
 def all() -> list[dict]:
     return [dict(row) for row in trades_table().all()]
+
+
+def discord_messages(doc: dict) -> list[dict]:
+    """Normalize per-event Discord ids. Legacy single message_id → OPEN row."""
+    raw = doc.get("discord") or {}
+    messages = list(raw.get("messages") or [])
+    if messages:
+        return messages
+    legacy = raw.get("message_id")
+    if legacy:
+        return [
+            {
+                "event_key": None,
+                "message_id": str(legacy),
+                "event_type": "OPEN",
+            }
+        ]
+    return []
+
+
+def posted_event_keys(doc: dict) -> set[str]:
+    keys: set[str] = set()
+    for m in discord_messages(doc):
+        if m.get("event_key"):
+            keys.add(m["event_key"])
+        for k in m.get("event_keys") or []:
+            if k:
+                keys.add(str(k))
+    return keys
+
+
+def record_discord_message(
+    doc: dict,
+    *,
+    event_key: str,
+    message_id: str,
+    event_type: str,
+    event_keys: list[str] | None = None,
+    order_id: str | None = None,
+) -> dict:
+    discord = dict(doc.get("discord") or {})
+    messages = list(discord.get("messages") or [])
+    # Drop legacy sole key once we store the list.
+    discord.pop("message_id", None)
+    keys = [str(k) for k in (event_keys or [event_key]) if k]
+    if event_key and event_key not in keys:
+        keys.insert(0, event_key)
+    row = {
+        "event_key": event_key,
+        "event_keys": keys,
+        "message_id": str(message_id),
+        "event_type": event_type,
+    }
+    if order_id:
+        row["order_id"] = str(order_id)
+    key_set = set(keys)
+    replaced = False
+    for i, existing in enumerate(messages):
+        existing_keys = set()
+        if existing.get("event_key"):
+            existing_keys.add(existing["event_key"])
+        existing_keys.update(str(k) for k in (existing.get("event_keys") or []) if k)
+        if existing_keys & key_set:
+            messages[i] = row
+            replaced = True
+            break
+    if not replaced:
+        messages.append(row)
+    discord["messages"] = messages
+    doc["discord"] = discord
+    return doc
+
+
+def latest_discord_message_id(doc: dict) -> str | None:
+    messages = discord_messages(doc)
+    if not messages:
+        return None
+    return str(messages[-1].get("message_id") or "") or None
+
+
+def open_discord_message_id(doc: dict) -> str | None:
+    for m in discord_messages(doc):
+        if m.get("event_type") == "OPEN" and m.get("message_id"):
+            return str(m["message_id"])
+    return None
