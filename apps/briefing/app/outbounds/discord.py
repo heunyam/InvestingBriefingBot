@@ -8,7 +8,5 @@ DAILY_WEBHOOK_URL = os.environ["DISCORD_DAILY_WEBHOOK_URL"]
 
 
 def send_daily(message: str) -> None:
-    response = requests.post(
-        DAILY_WEBHOOK_URL, json={"content": message}
-    )
+    response = requests.post(DAILY_WEBHOOK_URL, json={"content": message})
     response.raise_for_status()

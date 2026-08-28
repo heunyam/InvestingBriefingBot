@@ -42,7 +42,9 @@ def format_message(asset: AssetSummary, prev: AssetSummary) -> str:
         diff = to_decimal(value - prev_value)
 
         emoji = _trend_emoji(diff)
-        percent = to_decimal(diff / prev_value * 100) if prev_value > 0 else Decimal("0")
+        percent = (
+            to_decimal(diff / prev_value * 100) if prev_value > 0 else Decimal("0")
+        )
 
         return f"{value} {emoji} ({diff} / {percent}%)"
 
@@ -64,6 +66,7 @@ def format_message(asset: AssetSummary, prev: AssetSummary) -> str:
     ]
 
     return "\n".join(lines)
+
 
 def run_daily():
     summary = collect_daily_data()

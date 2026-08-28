@@ -12,6 +12,7 @@ Doc = Query()
 
 _db: TinyDB | None = None
 
+
 def get_db() -> TinyDB:
     global _db
     if _db is None:

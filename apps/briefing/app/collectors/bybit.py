@@ -32,6 +32,7 @@ def _fetch_coins_balance(session: HTTP, account_type: AccountType) -> dict:
 
     return fund
 
+
 def get_bybit_session(session: HTTP | None = None) -> HTTP:
     if session:
         return session
@@ -40,7 +41,9 @@ def get_bybit_session(session: HTTP | None = None) -> HTTP:
     if bybit_session:
         return bybit_session
 
-    bybit_session = HTTP(api_key=os.environ["BYBIT_API_KEY"], api_secret=os.environ["BYBIT_API_SECRET"])
+    bybit_session = HTTP(
+        api_key=os.environ["BYBIT_API_KEY"], api_secret=os.environ["BYBIT_API_SECRET"]
+    )
     return bybit_session
 
 
@@ -58,11 +61,7 @@ def fetch(session: HTTP | None = None) -> dict:
 
     coin = unified_total - unified_cash
     cash = unified_cash + fund_cash
-    return {
-        "cash": cash, 
-        "coin": coin, 
-        "total": unified_total + fund_cash
-    }
+    return {"cash": cash, "coin": coin, "total": unified_total + fund_cash}
 
 
 if __name__ == "__main__":
