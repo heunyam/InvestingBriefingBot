@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from app.models.db import Doc, trades_table
+from apps.briefing.app.models.db import trades_table, Doc
 
 ZERO = Decimal("0")
 

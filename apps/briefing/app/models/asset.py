@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
-from app.models.db import Doc, asset_summary_table, weekly_table
+from apps.briefing.app.models.db import asset_summary_table, Doc, weekly_table
 
 
 class AssetSummary(BaseModel):
@@ -48,12 +48,6 @@ class AssetSummary(BaseModel):
         return [cls.model_validate(row) for row in weekly_table().all()]
 
     @classmethod
-    def for_week(
-        cls, week_start: Date, rows: list["AssetSummary"]
-    ) -> "AssetSummary | None":
-        by_date = {row.date: row for row in rows}
-        for offset in range(7):
-            hit = by_date.get(week_start + timedelta(days=offset))
-            if hit is not None:
-                return hit
-        return None
+    def load_by_date_in_weekly(cls, date: Date) -> AssetSummary | None:
+        row = weekly_table().get(Doc.date == date.isoformat())
+        return cls.model_validate(row)

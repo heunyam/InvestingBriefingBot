@@ -2,7 +2,7 @@ import os
 
 from tinydb import Query, TinyDB
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "db")
 DB_PATH = os.path.join(DATA_DIR, "db.json")
 ASSET_SUMMARY_TABLE = "asset_summary"
 WEEKLY_TABLE = "weekly"
@@ -11,7 +11,6 @@ TRADES_TABLE = "trades"
 Doc = Query()
 
 _db: TinyDB | None = None
-
 
 def get_db() -> TinyDB:
     global _db

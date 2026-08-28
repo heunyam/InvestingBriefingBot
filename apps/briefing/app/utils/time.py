@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 
 DATE_FORMAT = "%Y-%m-%d"
 
@@ -17,3 +17,7 @@ def to_kst(dt: datetime) -> datetime:
 
 def yesterday(dt: datetime) -> datetime:
     return dt - timedelta(days=1)
+
+
+def get_week_start(day: date) -> date:
+    return day - timedelta(days=day.weekday())

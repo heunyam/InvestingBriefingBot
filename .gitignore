@@ -18,8 +18,8 @@ logs/
 .DS_Store
 
 # Daily portfolio snapshots (personal)
-apps/briefing/app/data/*.json
-apps/briefing/app/data/charts/
+apps/briefing/app/db/*.json
+apps/briefing/app/db/charts/
 
 # launchd machine logs
 apps/briefing/launchd/*.log

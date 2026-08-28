@@ -7,10 +7,9 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/make</string>
-        <string>-C</string>
-        <string>/Users/gimsejun/dev/InvestingBriefingBot</string>
-        <string>weekly</string>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>/usr/bin/make -C /Users/gimsejun/dev/InvestingBriefingBot weekly &amp;&amp; /usr/bin/make -C /Users/gimsejun/dev/InvestingBriefingBot trades-report</string>
     </array>
 
     <key>StartCalendarInterval</key>

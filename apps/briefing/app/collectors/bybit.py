@@ -2,18 +2,15 @@ import os
 from decimal import Decimal
 from enum import StrEnum
 
-from dotenv import load_dotenv
 from pybit.unified_trading import HTTP
-
-load_dotenv()
-
-API_KEY = os.environ["BYBIT_API_KEY"]
-API_SECRET = os.environ["BYBIT_API_SECRET"]
 
 
 class AccountType(StrEnum):
     UNIFIED = "UNIFIED"
     FUND = "FUND"
+
+
+bybit_session: HTTP | None = None
 
 
 def _d(v) -> Decimal:
@@ -35,9 +32,20 @@ def _fetch_coins_balance(session: HTTP, account_type: AccountType) -> dict:
 
     return fund
 
+def get_bybit_session(session: HTTP | None = None) -> HTTP:
+    if session:
+        return session
 
-def fetch() -> dict:
-    session = HTTP(api_key=API_KEY, api_secret=API_SECRET)
+    global bybit_session
+    if bybit_session:
+        return bybit_session
+
+    bybit_session = HTTP(api_key=os.environ["BYBIT_API_KEY"], api_secret=os.environ["BYBIT_API_SECRET"])
+    return bybit_session
+
+
+def fetch(session: HTTP | None = None) -> dict:
+    session = get_bybit_session(session)
     wallet = _fetch_wallet_balance(session)
 
     fund = _fetch_coins_balance(session, AccountType.FUND)
@@ -50,14 +58,18 @@ def fetch() -> dict:
 
     coin = unified_total - unified_cash
     cash = unified_cash + fund_cash
-    return {"cash": cash, "coin": coin, "total": unified_total + fund_cash}
+    return {
+        "cash": cash, 
+        "coin": coin, 
+        "total": unified_total + fund_cash
+    }
 
 
 if __name__ == "__main__":
-    session = HTTP(api_key=API_KEY, api_secret=API_SECRET)
-    unified = _fetch_coins_balance(session, AccountType.UNIFIED)
-    fund = _fetch_coins_balance(session, AccountType.FUND)
-    wallet = _fetch_wallet_balance(session)
+    s = get_bybit_session()
+    unified_data = _fetch_coins_balance(s, AccountType.UNIFIED)
+    fund_data = _fetch_coins_balance(s, AccountType.FUND)
+    wallet_data = _fetch_wallet_balance(s)
 
     data = fetch()
     print(data)
