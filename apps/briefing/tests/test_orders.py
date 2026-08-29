@@ -136,9 +136,7 @@ class TestOrders(DbTestCase):
     def test_analytics_summarize(self):
         Order.save(_order(order_id="entry"))
         Order.save(_order(order_id="win", reduce_only=True, realized_pnl=Decimal("10")))
-        Order.save(
-            _order(order_id="loss", reduce_only=True, realized_pnl=Decimal("-5"))
-        )
+        Order.save(_order(order_id="loss", reduce_only=True, realized_pnl=Decimal("-5")))
         Order.save(_order(order_id="flat", reduce_only=True, realized_pnl=Decimal("0")))
         now_ms = int(FILLED_AT.timestamp() * 1000) + 86_400_000
         stats = summarize(Order.all(), period="7d", now_ms=now_ms)
