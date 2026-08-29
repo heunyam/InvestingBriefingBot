@@ -3,13 +3,16 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.gimsejun.investingbriefingbot.weekly</string>
+    <string>com.investingbriefingbot.weekly</string>
+
+    <key>WorkingDirectory</key>
+    <string>@@REPO_ROOT@@</string>
 
     <key>ProgramArguments</key>
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>/usr/bin/make -C /Users/gimsejun/dev/InvestingBriefingBot weekly &amp;&amp; /usr/bin/make -C /Users/gimsejun/dev/InvestingBriefingBot orders-report</string>
+        <string>/usr/bin/make weekly &amp;&amp; /usr/bin/make orders-report</string>
     </array>
 
     <key>StartCalendarInterval</key>
@@ -23,10 +26,10 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/Users/gimsejun/dev/InvestingBriefingBot/apps/briefing/launchd/weekly.stdout.log</string>
+    <string>@@REPO_ROOT@@/apps/briefing/launchd/weekly.stdout.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/gimsejun/dev/InvestingBriefingBot/apps/briefing/launchd/weekly.stderr.log</string>
+    <string>@@REPO_ROOT@@/apps/briefing/launchd/weekly.stderr.log</string>
 
     <key>RunAtLoad</key>
     <false/>

@@ -3,29 +3,30 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.gimsejun.investingbriefingbot.daily</string>
+    <string>com.investingbriefingbot.orders</string>
+
+    <key>WorkingDirectory</key>
+    <string>@@REPO_ROOT@@</string>
 
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/make</string>
-        <string>-C</string>
-        <string>/Users/gimsejun/dev/InvestingBriefingBot</string>
-        <string>daily</string>
+        <string>orders</string>
     </array>
 
     <key>StartCalendarInterval</key>
     <dict>
         <key>Hour</key>
-        <integer>7</integer>
+        <integer>6</integer>
         <key>Minute</key>
-        <integer>0</integer>
+        <integer>50</integer>
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/Users/gimsejun/dev/InvestingBriefingBot/apps/briefing/launchd/daily.stdout.log</string>
+    <string>@@REPO_ROOT@@/apps/briefing/launchd/orders.stdout.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/gimsejun/dev/InvestingBriefingBot/apps/briefing/launchd/daily.stderr.log</string>
+    <string>@@REPO_ROOT@@/apps/briefing/launchd/orders.stderr.log</string>
 
     <key>RunAtLoad</key>
     <false/>
