@@ -6,7 +6,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import apps.briefing.app.db.tables as db
-from apps.briefing.app.models.order import Order, all, load, save
+from apps.briefing.app.models.order import Order
 from apps.briefing.app.services.order_analytics import summarize
 from apps.briefing.app.services.order import (
     attach_position_context,
@@ -96,10 +96,10 @@ class TestOrders(DbTestCase):
 
     def test_save_upsert_idempotent(self):
         order = map_order(ORDER_HISTORY_ROW, synced_at=SYNCED_AT)
-        save(order)
-        save(order.model_copy(update={"quantity": Decimal("12")}))
-        self.assertEqual(len(all()), 1)
-        self.assertEqual(load(order.order_id).quantity, Decimal("12"))
+        Order.save(order)
+        Order.save(order.model_copy(update={"quantity": Decimal("12")}))
+        self.assertEqual(len(Order.all()), 1)
+        self.assertEqual(Order.load(order.order_id).quantity, Decimal("12"))
 
     @patch("apps.briefing.app.services.order.enrich_orders")
     @patch("apps.briefing.app.services.order.time.time")
@@ -110,35 +110,53 @@ class TestOrders(DbTestCase):
         mock_enrich.return_value = {"fetched": 0, "updated": 0}
         result = sync_all()
         self.assertEqual(result["saved"], 1)
-        self.assertEqual(len(all()), 1)
+        self.assertEqual(len(Order.all()), 1)
+
+    @patch("apps.briefing.app.services.order.enrich_orders")
+    @patch("apps.briefing.app.services.order.time.time")
+    @patch("apps.briefing.app.services.order.bybit.fetch_order_history")
+    def test_sync_all_dry_run_skips_persist(self, mock_fetch, mock_time, mock_enrich):
+        mock_time.return_value = 1_700_000_000
+        mock_fetch.return_value = [ORDER_HISTORY_ROW]
+        result = sync_all(dry_run=True)
+        self.assertEqual(result["saved"], 1)
+        self.assertEqual(len(result["new_orders"]), 1)
+        self.assertEqual(len(Order.all()), 0)
+        mock_enrich.assert_not_called()
 
     @patch("apps.briefing.app.services.order.bybit.fetch_closed_pnl")
     def test_enrich_sets_realized_pnl(self, mock_fetch):
-        save(_order(order_id="exit-order-id", reduce_only=True))
+        Order.save(_order(order_id="exit-order-id", reduce_only=True))
         mock_fetch.return_value = [
             {"orderId": "exit-order-id", "closedPnl": "12.5", "leverage": "3"}
         ]
         self.assertEqual(enrich_orders(start_ms=1, end_ms=2)["updated"], 1)
-        self.assertEqual(load("exit-order-id").realized_pnl, Decimal("12.5"))
+        self.assertEqual(Order.load("exit-order-id").realized_pnl, Decimal("12.5"))
 
     def test_analytics_summarize(self):
-        save(_order(order_id="entry"))
-        save(_order(order_id="win", reduce_only=True, realized_pnl=Decimal("10")))
-        save(_order(order_id="loss", reduce_only=True, realized_pnl=Decimal("-5")))
-        save(_order(order_id="flat", reduce_only=True, realized_pnl=Decimal("0")))
+        Order.save(_order(order_id="entry"))
+        Order.save(_order(order_id="win", reduce_only=True, realized_pnl=Decimal("10")))
+        Order.save(_order(order_id="loss", reduce_only=True, realized_pnl=Decimal("-5")))
+        Order.save(_order(order_id="flat", reduce_only=True, realized_pnl=Decimal("0")))
         now_ms = int(FILLED_AT.timestamp() * 1000) + 86_400_000
-        stats = summarize(all(), period="7d", now_ms=now_ms)
+        stats = summarize(Order.all(), period="7d", now_ms=now_ms)
         self.assertEqual(stats["n"], 2)
         self.assertEqual(stats["net_pnl"], Decimal("5"))
 
     def test_save_returns_true_only_for_new_order(self):
         order = map_order(ORDER_HISTORY_ROW, synced_at=SYNCED_AT)
-        self.assertTrue(save(order))
-        self.assertFalse(save(order))
+        self.assertTrue(Order.save(order))
+        self.assertFalse(Order.save(order))
+
+    @patch("apps.briefing.app.services.order.discord.send_trade")
+    def test_notify_orders_stdout_only_skips_discord(self, mock_send):
+        posted = notify_orders([_order(order_id="new")], stdout_only=True)
+        self.assertEqual(posted, 1)
+        mock_send.assert_not_called()
 
     @patch("apps.briefing.app.services.order.discord.send_trade")
     def test_notify_orders_posts_new_only(self, mock_send):
-        save(_order(order_id="old"))
+        Order.save(_order(order_id="old"))
         order = _order(order_id="new")
         posted = notify_orders([order])
         self.assertEqual(posted, 1)

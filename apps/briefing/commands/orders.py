@@ -15,7 +15,7 @@ from apps.briefing.app.services.order import notify_orders, sync_all
 
 
 def app(*, backfill: bool = False, stdout_only: bool = False) -> dict:
-    result = sync_all(backfill=backfill)
+    result = sync_all(backfill=backfill, dry_run=stdout_only)
     if stdout_only:
         print(json.dumps(result, indent=2))
         notify_orders(result["new_orders"], stdout_only=True)

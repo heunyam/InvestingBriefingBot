@@ -12,7 +12,7 @@ import time
 
 from dotenv import load_dotenv
 
-from apps.briefing.app.models.order import all
+from apps.briefing.app.models.order import Order
 from apps.briefing.app.outbounds import discord
 from apps.briefing.app.services import order, order_analytics
 
@@ -39,7 +39,7 @@ def app(argv: list[str] | None = None) -> str:
 
     text = order_analytics.format_report(
         order_analytics.summarize(
-            all(),
+            Order.all(),
             period=args.period,
             now_ms=int(time.time() * 1000),
             symbol=args.symbol,
