@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from apps.briefing.app.models.order import Order, all
+from apps.briefing.app.utils.format import fmt_decimal, fmt_pct
 
 ZERO = Decimal("0")
 DAY_MS = 24 * 60 * 60 * 1000
@@ -31,7 +32,7 @@ def summarize(
     span = PERIOD_MS[period]
     start_ms = None if span is None else max(0, now_ms - span)
 
-    n = wins = losses = 0
+    n = wins = 0
     net_pnl = fees = ZERO
     for order in orders if orders is not None else all():
         if not _in_period(order, start_ms, now_ms):
@@ -49,18 +50,26 @@ def summarize(
         net_pnl += order.realized_pnl
         if order.realized_pnl > ZERO:
             wins += 1
-        else:
-            losses += 1
 
-    denom = wins + losses
-    win_rate = None if denom == 0 else Decimal(wins) / Decimal(denom)
+    win_rate = None if n == 0 else Decimal(wins) / Decimal(n)
     return {
         "period": period,
         "title": PERIOD_TITLE.get(period, period),
         "n": n,
-        "wins": wins,
-        "losses": losses,
         "win_rate": win_rate,
         "net_pnl": net_pnl,
         "fees": fees,
     }
+
+
+def format_report(stats: dict) -> str:
+    return "\n".join(
+        [
+            f"📊 매매 성과 · {stats['title']}",
+            "",
+            f"거래 {stats['n']:,}",
+            f"승률 {fmt_pct(stats['win_rate'])}",
+            f"💰 순손익 {fmt_decimal(stats['net_pnl'])}",
+            f"💸 수수료 {fmt_decimal(stats['fees'])}",
+        ]
+    )

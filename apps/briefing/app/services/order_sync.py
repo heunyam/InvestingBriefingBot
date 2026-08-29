@@ -1,10 +1,10 @@
 import time
 from decimal import Decimal
 
-from apps.briefing.app.collectors import bybit_orders
+from apps.briefing.app.collectors import bybit
 from apps.briefing.app.db.tables import Doc, get_db
 from apps.briefing.app.models.order import Order, all, save
-from apps.briefing.app.outbounds import discord_trade
+from apps.briefing.app.outbounds import discord
 from apps.briefing.app.services.order import map_order
 from apps.briefing.app.services.order_message import attach_position_context, format_order_message
 
@@ -45,7 +45,7 @@ def _has_exec_qty(row: dict) -> bool:
 
 
 def enrich_orders(*, start_ms: int, end_ms: int, session=None) -> dict:
-    rows = bybit_orders.fetch_closed_pnl(
+    rows = bybit.fetch_closed_pnl(
         session=session, start_ms=start_ms, end_ms=end_ms
     )
     by_order_id = {str(row["orderId"]): row for row in rows if row.get("orderId")}
@@ -71,24 +71,16 @@ def enrich_orders(*, start_ms: int, end_ms: int, session=None) -> dict:
     return {"fetched": len(rows), "updated": updated}
 
 
-def notify_unposted(*, stdout_only: bool = False) -> list[Order]:
-    posted: list[Order] = []
-    pending = [
-        order
-        for order in attach_position_context(all())
-        if not order.discord_message_id
-    ]
-    pending.sort(key=lambda order: order.filled_at)
-    for order in pending:
+def notify_orders(orders: list[Order], *, stdout_only: bool = False) -> int:
+    posted = 0
+    for order in sorted(attach_position_context(orders), key=lambda item: item.filled_at):
         content = format_order_message(order)
         if stdout_only:
             print("---")
             print(content)
-            posted.append(order)
-            continue
-        message_id = discord_trade.send_trade(content)
-        save(order.model_copy(update={"discord_message_id": message_id}))
-        posted.append(order)
+        else:
+            discord.send_trade(f"```\n{content}\n```")
+        posted += 1
     return posted
 
 
@@ -108,20 +100,24 @@ def sync_all(*, backfill: bool = False, session=None) -> dict:
         return {
             "fetched": 0,
             "saved": 0,
+            "new_orders": [],
             "enriched": {"fetched": 0, "updated": 0},
             "start_ms": start_ms,
             "end_ms": end_ms,
         }
 
-    rows = bybit_orders.fetch_order_history(
+    rows = bybit.fetch_order_history(
         session=session, start_ms=start_ms, end_ms=end_ms
     )
 
+    new_orders: list[Order] = []
     saved = 0
     for row in rows:
         if not _has_exec_qty(row):
             continue
-        save(map_order(row))
+        order = map_order(row)
+        if save(order):
+            new_orders.append(order)
         saved += 1
 
     set_last_synced_ms(end_ms)
@@ -129,6 +125,7 @@ def sync_all(*, backfill: bool = False, session=None) -> dict:
     return {
         "fetched": len(rows),
         "saved": saved,
+        "new_orders": new_orders,
         "enriched": enriched,
         "start_ms": start_ms,
         "end_ms": end_ms,

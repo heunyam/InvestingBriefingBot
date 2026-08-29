@@ -84,25 +84,13 @@ class Order(BaseModel):
     synced_at: datetime = Field(
         ..., title="동기화 시각", description="로컬 DB에 반영된 시각 (KST)."
     )
-    discord_message_id: str | None = Field(
-        default=None,
-        title="Discord 메시지 ID",
-        description="TRADE webhook에 게시한 메시지. 미전송이면 None.",
-    )
 
 
-def save(order: Order) -> None:
+def save(order: Order) -> bool:
     existing = load(order.order_id)
-    if (
-        existing
-        and existing.discord_message_id
-        and not order.discord_message_id
-    ):
-        order = order.model_copy(
-            update={"discord_message_id": existing.discord_message_id}
-        )
     doc = order.model_dump(mode="json")
     orders_table().upsert(doc, Doc.order_id == doc["order_id"])
+    return existing is None
 
 
 def load(order_id: str) -> Order | None:

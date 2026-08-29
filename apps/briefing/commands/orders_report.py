@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 from apps.briefing.app.models.order import all
 from apps.briefing.app.outbounds import discord
-from apps.briefing.app.services import order_analytics, order_report, order_sync
+from apps.briefing.app.services import order_analytics, order_sync
 
 
 def app(argv: list[str] | None = None) -> str:
@@ -33,7 +33,7 @@ def app(argv: list[str] | None = None) -> str:
         start_ms = end_ms - order_sync.DEFAULT_LOOKBACK_MS
         print(f"enriched={order_sync.enrich_orders(start_ms=start_ms, end_ms=end_ms)['updated']}")
 
-    text = order_report.format_report(
+    text = order_analytics.format_report(
         order_analytics.summarize(
             all(),
             period=args.period,

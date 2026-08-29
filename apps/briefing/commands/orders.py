@@ -11,14 +11,14 @@ import json
 
 from dotenv import load_dotenv
 
-from apps.briefing.app.services.order_sync import notify_unposted, sync_all
+from apps.briefing.app.services.order_sync import notify_orders, sync_all
 
 
 def app(*, backfill: bool = False, stdout_only: bool = False) -> dict:
     result = sync_all(backfill=backfill)
     if stdout_only:
         print(json.dumps(result, indent=2))
-        notify_unposted(stdout_only=True)
+        notify_orders(result["new_orders"], stdout_only=True)
         return result
 
     print(
@@ -26,7 +26,7 @@ def app(*, backfill: bool = False, stdout_only: bool = False) -> dict:
         f"enriched={result['enriched']['updated']} "
         f"start_ms={result['start_ms']} end_ms={result['end_ms']}"
     )
-    print(f"discord_posted={len(notify_unposted())}")
+    print(f"discord_posted={notify_orders(result['new_orders'])}")
     return result
 
 

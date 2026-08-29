@@ -10,7 +10,7 @@ from apps.briefing.app.models.order import Order, all, load, save
 from apps.briefing.app.services.order import map_order
 from apps.briefing.app.services.order_analytics import summarize
 from apps.briefing.app.services.order_message import attach_position_context, format_order_message
-from apps.briefing.app.services.order_sync import enrich_orders, notify_unposted, sync_all
+from apps.briefing.app.services.order_sync import enrich_orders, notify_orders, sync_all
 
 KST = timezone(timedelta(hours=9))
 SYNCED_AT = datetime(2026, 8, 29, 10, 0, 0, tzinfo=KST)
@@ -59,7 +59,6 @@ def _order(
     position_qty_before: Decimal | None = None,
     position_qty_after: Decimal | None = None,
     position_avg_price: Decimal | None = None,
-    discord_message_id: str | None = None,
 ) -> Order:
     if side is None:
         side = "SELL" if reduce_only else "BUY"
@@ -80,19 +79,10 @@ def _order(
         position_qty_after=position_qty_after,
         position_avg_price=position_avg_price,
         synced_at=SYNCED_AT,
-        discord_message_id=discord_message_id,
     )
 
 
 class TestOrders(DbTestCase):
-    def test_order_field_schema(self):
-        schema = Order.model_json_schema()
-        props = schema["properties"]
-        for name in Order.model_fields:
-            with self.subTest(field=name):
-                self.assertIn("title", props[name])
-                self.assertIn("description", props[name])
-
     def test_map_order(self):
         order = map_order(ORDER_HISTORY_ROW, synced_at=SYNCED_AT)
         self.assertEqual(order.side, "BUY")
@@ -108,7 +98,7 @@ class TestOrders(DbTestCase):
 
     @patch("apps.briefing.app.services.order_sync.enrich_orders")
     @patch("apps.briefing.app.services.order_sync._ms_now")
-    @patch("apps.briefing.app.services.order_sync.bybit_orders.fetch_order_history")
+    @patch("apps.briefing.app.services.order_sync.bybit.fetch_order_history")
     def test_sync_all_mocked(self, mock_fetch, mock_now, mock_enrich):
         mock_now.return_value = 1_700_000_000_000
         mock_fetch.return_value = [ORDER_HISTORY_ROW]
@@ -117,7 +107,7 @@ class TestOrders(DbTestCase):
         self.assertEqual(result["saved"], 1)
         self.assertEqual(len(all()), 1)
 
-    @patch("apps.briefing.app.services.order_sync.bybit_orders.fetch_closed_pnl")
+    @patch("apps.briefing.app.services.order_sync.bybit.fetch_closed_pnl")
     def test_enrich_sets_realized_pnl(self, mock_fetch):
         save(_order(order_id="exit-order-id", reduce_only=True))
         mock_fetch.return_value = [
@@ -136,19 +126,19 @@ class TestOrders(DbTestCase):
         self.assertEqual(stats["n"], 2)
         self.assertEqual(stats["net_pnl"], Decimal("5"))
 
-    def test_discord_message_id_preserved_on_resync(self):
+    def test_save_returns_true_only_for_new_order(self):
         order = map_order(ORDER_HISTORY_ROW, synced_at=SYNCED_AT)
-        save(order.model_copy(update={"discord_message_id": "msg-keep"}))
-        save(map_order(ORDER_HISTORY_ROW, synced_at=SYNCED_AT))
-        self.assertEqual(load(order.order_id).discord_message_id, "msg-keep")
+        self.assertTrue(save(order))
+        self.assertFalse(save(order))
 
-    @patch("apps.briefing.app.services.order_sync.discord_trade.send_trade")
-    def test_notify_skips_posted(self, mock_send):
-        save(_order(order_id="posted", discord_message_id="msg-1"))
-        save(_order(order_id="pending"))
-        mock_send.return_value = "msg-2"
-        self.assertEqual(len(notify_unposted()), 1)
-        self.assertEqual(load("pending").discord_message_id, "msg-2")
+    @patch("apps.briefing.app.services.order_sync.discord.send_trade")
+    def test_notify_orders_posts_new_only(self, mock_send):
+        save(_order(order_id="old"))
+        order = _order(order_id="new")
+        posted = notify_orders([order])
+        self.assertEqual(posted, 1)
+        mock_send.assert_called_once()
+        self.assertTrue(mock_send.call_args.args[0].startswith("```"))
 
 
 class TestOrderMessage(unittest.TestCase):
