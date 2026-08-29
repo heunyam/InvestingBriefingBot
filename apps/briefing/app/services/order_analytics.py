@@ -1,20 +1,16 @@
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from app.models import trade
+from apps.briefing.app.models.order import Order, all
 
 ZERO = Decimal("0")
 DAY_MS = 24 * 60 * 60 * 1000
+KST = timezone(timedelta(hours=9))
 PERIOD_MS = {
     "7d": 7 * DAY_MS,
     "30d": 30 * DAY_MS,
     "all": None,
 }
-
-
-def _d(v) -> Decimal | None:
-    if v is None or v == "":
-        return None
-    return Decimal(str(v))
 
 
 def period_bounds(period: str, now_ms: int) -> tuple[int | None, int]:
@@ -25,56 +21,61 @@ def period_bounds(period: str, now_ms: int) -> tuple[int | None, int]:
     return start_ms, now_ms
 
 
-def _event_sum(doc: dict, field: str) -> Decimal:
-    total = ZERO
-    for ev in doc.get("events") or []:
-        total += _d(ev.get(field)) or ZERO
-    return total
+def _filled_at_ms(order: Order) -> int:
+    return int(order.filled_at.timestamp() * 1000)
 
 
-def is_reviewed(doc: dict) -> bool:
-    review = doc.get("review") or {}
-    return bool(review.get("entry_reason") and review.get("exit_reason"))
-
-
-def pnl_amount(doc: dict) -> Decimal | None:
-    return _d((doc.get("pnl") or {}).get("amount"))
-
-
-def is_stats_trade(doc: dict) -> bool:
-    if doc.get("status") != "CLOSED":
+def is_stats_order(order: Order) -> bool:
+    if not order.reduce_only:
         return False
-    if doc.get("stats_eligible") is False:
-        return False
-    amount = pnl_amount(doc)
-    if amount is None or amount == ZERO:
+    if order.realized_pnl is None or order.realized_pnl == ZERO:
         return False
     return True
 
 
-def select_closed(
-    docs: list[dict],
+def _result(order: Order) -> str | None:
+    if order.realized_pnl is None or order.realized_pnl == ZERO:
+        return None
+    return "WIN" if order.realized_pnl > ZERO else "LOSS"
+
+
+def select_stats_orders(
+    orders: list[Order],
     *,
     start_ms: int | None,
     end_ms: int,
     symbol: str | None = None,
-) -> list[dict]:
+) -> list[Order]:
     selected = []
-    for doc in docs:
-        if not is_stats_trade(doc):
+    for order in orders:
+        if not is_stats_order(order):
             continue
-        closed_at = doc.get("closed_at_ms")
-        if closed_at is None:
+        filled_ms = _filled_at_ms(order)
+        if start_ms is not None and filled_ms < start_ms:
             continue
-        closed_at = int(closed_at)
-        if start_ms is not None and closed_at < start_ms:
+        if filled_ms > end_ms:
             continue
-        if closed_at > end_ms:
+        if symbol and order.symbol != symbol:
             continue
-        if symbol and doc.get("symbol") != symbol:
+        selected.append(order)
+    selected.sort(key=_filled_at_ms)
+    return selected
+
+
+def select_fee_orders(
+    orders: list[Order],
+    *,
+    start_ms: int | None,
+    end_ms: int,
+) -> list[Order]:
+    selected = []
+    for order in orders:
+        filled_ms = _filled_at_ms(order)
+        if start_ms is not None and filled_ms < start_ms:
             continue
-        selected.append(doc)
-    selected.sort(key=lambda d: int(d.get("closed_at_ms") or 0))
+        if filled_ms > end_ms:
+            continue
+        selected.append(order)
     return selected
 
 
@@ -119,16 +120,16 @@ def _max_drawdown(pnls: list[Decimal]) -> Decimal:
     return max_dd
 
 
-def _symbol_stats(docs: list[dict]) -> list[dict]:
-    groups: dict[str, list[dict]] = {}
-    for doc in docs:
-        groups.setdefault(doc["symbol"], []).append(doc)
+def _symbol_stats(orders: list[Order]) -> list[dict]:
+    groups: dict[str, list[Order]] = {}
+    for order in orders:
+        groups.setdefault(order.symbol, []).append(order)
     rows = []
     for symbol in sorted(groups):
         items = groups[symbol]
-        wins = sum(1 for d in items if (d.get("pnl") or {}).get("result") == "WIN")
-        losses = sum(1 for d in items if (d.get("pnl") or {}).get("result") == "LOSS")
-        net = sum((pnl_amount(d) or ZERO) for d in items)
+        wins = sum(1 for order in items if _result(order) == "WIN")
+        losses = sum(1 for order in items if _result(order) == "LOSS")
+        net = sum((order.realized_pnl or ZERO) for order in items)
         rows.append(
             {
                 "symbol": symbol,
@@ -141,29 +142,27 @@ def _symbol_stats(docs: list[dict]) -> list[dict]:
 
 
 def summarize(
-    docs: list[dict] | None = None,
+    orders: list[Order] | None = None,
     *,
     period: str = "7d",
     now_ms: int,
     symbol: str | None = None,
 ) -> dict:
     start_ms, end_ms = period_bounds(period, now_ms)
-    selected = select_closed(
-        docs if docs is not None else trade.all(),
-        start_ms=start_ms,
-        end_ms=end_ms,
-        symbol=symbol,
+    source = orders if orders is not None else all()
+    selected = select_stats_orders(
+        source, start_ms=start_ms, end_ms=end_ms, symbol=symbol
     )
+    fee_orders = select_fee_orders(source, start_ms=start_ms, end_ms=end_ms)
     n = len(selected)
-    pnls = [pnl_amount(d) or ZERO for d in selected]
-    results = [(d.get("pnl") or {}).get("result") for d in selected]
-    wins = sum(1 for r in results if r == "WIN")
-    losses = sum(1 for r in results if r == "LOSS")
+    pnls = [order.realized_pnl or ZERO for order in selected]
+    results = [_result(order) for order in selected]
+    wins = sum(1 for result in results if result == "WIN")
+    losses = sum(1 for result in results if result == "LOSS")
     gross_profit = sum((p for p in pnls if p > ZERO), ZERO)
     gross_loss = sum((p for p in pnls if p < ZERO), ZERO)
     net = sum(pnls, ZERO)
     win_streak, loss_streak = _streaks([r for r in results if r in ("WIN", "LOSS")])
-    reviewed = sum(1 for d in selected if is_reviewed(d))
     return {
         "period": period,
         "start_ms": start_ms,
@@ -182,8 +181,6 @@ def summarize(
         "max_win_streak": win_streak,
         "max_loss_streak": loss_streak,
         "max_drawdown": _max_drawdown(pnls),
-        "fees": sum((_event_sum(d, "fee") for d in selected), ZERO),
-        "funding": sum((_event_sum(d, "funding") for d in selected), ZERO),
-        "review_rate": None if n == 0 else Decimal(reviewed) / Decimal(n),
+        "fees": sum((order.fee for order in fee_orders), ZERO),
         "by_symbol": _symbol_stats(selected),
     }

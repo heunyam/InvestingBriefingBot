@@ -68,11 +68,7 @@ def format_report(stats: dict) -> str:
                 f"패 {_fmt_int(stats['max_loss_streak'])}"
             ),
             f"📉 낙폭 {_fmt_money(stats['max_drawdown'])}",
-            (
-                f"💸 수수료 {_fmt_money(stats['fees'])} · "
-                f"펀딩 {_fmt_money(stats['funding'])}"
-            ),
-            f"📝 복기 {_fmt_pct(stats['review_rate'])}",
+            f"💸 수수료 {_fmt_money(stats['fees'])}",
             "",
             "종목별",
             symbol_block,

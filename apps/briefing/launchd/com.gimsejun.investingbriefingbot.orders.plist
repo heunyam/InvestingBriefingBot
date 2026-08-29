@@ -3,14 +3,14 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.gimsejun.investingbriefingbot.trades</string>
+    <string>com.gimsejun.investingbriefingbot.orders</string>
 
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/make</string>
         <string>-C</string>
         <string>/Users/gimsejun/dev/InvestingBriefingBot</string>
-        <string>trades</string>
+        <string>orders</string>
     </array>
 
     <key>StartCalendarInterval</key>
@@ -22,10 +22,10 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/Users/gimsejun/dev/InvestingBriefingBot/apps/briefing/launchd/trades.stdout.log</string>
+    <string>/Users/gimsejun/dev/InvestingBriefingBot/apps/briefing/launchd/orders.stdout.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/gimsejun/dev/InvestingBriefingBot/apps/briefing/launchd/trades.stderr.log</string>
+    <string>/Users/gimsejun/dev/InvestingBriefingBot/apps/briefing/launchd/orders.stderr.log</string>
 
     <key>RunAtLoad</key>
     <false/>

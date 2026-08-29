@@ -6,7 +6,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "db")
 DB_PATH = os.path.join(DATA_DIR, "db.json")
 ASSET_SUMMARY_TABLE = "asset_summary"
 WEEKLY_TABLE = "weekly"
-TRADES_TABLE = "trades"
+ORDERS_TABLE = "orders"
 
 Doc = Query()
 
@@ -29,5 +29,5 @@ def weekly_table():
     return get_db().table(WEEKLY_TABLE)
 
 
-def trades_table():
-    return get_db().table(TRADES_TABLE)
+def orders_table():
+    return get_db().table(ORDERS_TABLE)

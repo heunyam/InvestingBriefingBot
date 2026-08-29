@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
-from apps.briefing.app.models.db import asset_summary_table, Doc, weekly_table
+from apps.briefing.app.db.tables import asset_summary_table, Doc, weekly_table
 
 
 class AssetSummary(BaseModel):

@@ -9,7 +9,7 @@
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>/usr/bin/make -C /Users/gimsejun/dev/InvestingBriefingBot weekly &amp;&amp; /usr/bin/make -C /Users/gimsejun/dev/InvestingBriefingBot trades-report</string>
+        <string>/usr/bin/make -C /Users/gimsejun/dev/InvestingBriefingBot weekly &amp;&amp; /usr/bin/make -C /Users/gimsejun/dev/InvestingBriefingBot orders-report</string>
     </array>
 
     <key>StartCalendarInterval</key>
