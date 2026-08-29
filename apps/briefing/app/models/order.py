@@ -60,6 +60,27 @@ class Order(BaseModel):
         title="레버리지",
         description="주문 당시 레버리지 배수. 미조회 시 None.",
     )
+    position_qty_before: Decimal | None = Field(
+        default=None,
+        max_digits=50,
+        decimal_places=35,
+        title="체결 전 포지션 수량",
+        description="같은 심볼·방향 기준 체결 직전 보유 수량.",
+    )
+    position_qty_after: Decimal | None = Field(
+        default=None,
+        max_digits=50,
+        decimal_places=35,
+        title="체결 후 포지션 수량",
+        description="같은 심볼·방향 기준 체결 직후 보유 수량.",
+    )
+    position_avg_price: Decimal | None = Field(
+        default=None,
+        max_digits=50,
+        decimal_places=35,
+        title="포지션 평단",
+        description="체결 반영 후 포지션 평균 단가.",
+    )
     synced_at: datetime = Field(
         ..., title="동기화 시각", description="로컬 DB에 반영된 시각 (KST)."
     )

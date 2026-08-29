@@ -3,9 +3,10 @@ from decimal import Decimal
 
 from apps.briefing.app.collectors import bybit_orders
 from apps.briefing.app.db.tables import Doc, get_db
-from apps.briefing.app.models.order import save
+from apps.briefing.app.models.order import Order, all, save
+from apps.briefing.app.outbounds import discord_trade
 from apps.briefing.app.services.order import map_order
-from apps.briefing.app.services.order_enrich import enrich_orders
+from apps.briefing.app.services.order_message import attach_position_context, format_order_message
 
 META_TABLE = "order_sync_meta"
 META_KEY = "bybit_order_history"
@@ -43,6 +44,54 @@ def _has_exec_qty(row: dict) -> bool:
     return Decimal(str(qty)) > ZERO
 
 
+def enrich_orders(*, start_ms: int, end_ms: int, session=None) -> dict:
+    rows = bybit_orders.fetch_closed_pnl(
+        session=session, start_ms=start_ms, end_ms=end_ms
+    )
+    by_order_id = {str(row["orderId"]): row for row in rows if row.get("orderId")}
+
+    updated = 0
+    for order in all():
+        if not order.reduce_only or order.realized_pnl is not None:
+            continue
+        row = by_order_id.get(order.order_id)
+        if row is None:
+            continue
+        leverage = row.get("leverage")
+        save(
+            order.model_copy(
+                update={
+                    "realized_pnl": Decimal(str(row["closedPnl"])),
+                    "leverage": str(leverage) if leverage not in (None, "") else None,
+                }
+            )
+        )
+        updated += 1
+
+    return {"fetched": len(rows), "updated": updated}
+
+
+def notify_unposted(*, stdout_only: bool = False) -> list[Order]:
+    posted: list[Order] = []
+    pending = [
+        order
+        for order in attach_position_context(all())
+        if not order.discord_message_id
+    ]
+    pending.sort(key=lambda order: order.filled_at)
+    for order in pending:
+        content = format_order_message(order)
+        if stdout_only:
+            print("---")
+            print(content)
+            posted.append(order)
+            continue
+        message_id = discord_trade.send_trade(content)
+        save(order.model_copy(update={"discord_message_id": message_id}))
+        posted.append(order)
+    return posted
+
+
 def sync_all(*, backfill: bool = False, session=None) -> dict:
     end_ms = _ms_now()
 
@@ -59,7 +108,7 @@ def sync_all(*, backfill: bool = False, session=None) -> dict:
         return {
             "fetched": 0,
             "saved": 0,
-            "enriched": {"fetched": 0, "matched": 0, "updated": 0},
+            "enriched": {"fetched": 0, "updated": 0},
             "start_ms": start_ms,
             "end_ms": end_ms,
         }

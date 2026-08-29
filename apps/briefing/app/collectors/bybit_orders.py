@@ -1,7 +1,5 @@
-import json
 import time
-
-from dotenv import load_dotenv
+from collections.abc import Callable
 
 from apps.briefing.app.collectors.bybit import get_bybit_session
 
@@ -36,8 +34,34 @@ def _cursor(resp: dict) -> str | None:
     return cursor or None
 
 
-def fetch_order_history_page(
-    session=None, *, start_ms: int, end_ms: int, cursor: str | None = None
+def _fetch_windowed(
+    session,
+    *,
+    start_ms: int,
+    end_ms: int,
+    fetch_page: Callable,
+) -> list[dict]:
+    rows: list[dict] = []
+    window_start = start_ms
+    while window_start <= end_ms:
+        window_end = min(window_start + SEVEN_DAYS_MS - 1, end_ms)
+        cursor = None
+        while True:
+            page, cursor = fetch_page(
+                session,
+                start_ms=window_start,
+                end_ms=window_end,
+                cursor=cursor,
+            )
+            rows.extend(page)
+            if not cursor:
+                break
+        window_start = window_end + 1
+    return rows
+
+
+def _fetch_order_history_page(
+    session, *, start_ms: int, end_ms: int, cursor: str | None = None
 ) -> tuple[list[dict], str | None]:
     http = get_bybit_session(session)
     kwargs = {
@@ -58,30 +82,8 @@ def fetch_order_history_page(
     return _rows(resp), _cursor(resp)
 
 
-def fetch_order_history(
-    session=None, *, start_ms: int, end_ms: int
-) -> list[dict]:
-    rows: list[dict] = []
-    window_start = start_ms
-    while window_start <= end_ms:
-        window_end = min(window_start + SEVEN_DAYS_MS - 1, end_ms)
-        cursor = None
-        while True:
-            page, cursor = fetch_order_history_page(
-                session=session,
-                start_ms=window_start,
-                end_ms=window_end,
-                cursor=cursor,
-            )
-            rows.extend(page)
-            if not cursor:
-                break
-        window_start = window_end + 1
-    return rows
-
-
-def fetch_closed_pnl_page(
-    session=None, *, start_ms: int, end_ms: int, cursor: str | None = None
+def _fetch_closed_pnl_page(
+    session, *, start_ms: int, end_ms: int, cursor: str | None = None
 ) -> tuple[list[dict], str | None]:
     http = get_bybit_session(session)
     kwargs = {
@@ -100,23 +102,19 @@ def fetch_closed_pnl_page(
     return _rows(resp), _cursor(resp)
 
 
-def fetch_closed_pnl(
-    session=None, *, start_ms: int, end_ms: int
-) -> list[dict]:
-    rows: list[dict] = []
-    window_start = start_ms
-    while window_start <= end_ms:
-        window_end = min(window_start + SEVEN_DAYS_MS - 1, end_ms)
-        cursor = None
-        while True:
-            page, cursor = fetch_closed_pnl_page(
-                session=session,
-                start_ms=window_start,
-                end_ms=window_end,
-                cursor=cursor,
-            )
-            rows.extend(page)
-            if not cursor:
-                break
-        window_start = window_end + 1
-    return rows
+def fetch_order_history(session=None, *, start_ms: int, end_ms: int) -> list[dict]:
+    return _fetch_windowed(
+        session,
+        start_ms=start_ms,
+        end_ms=end_ms,
+        fetch_page=_fetch_order_history_page,
+    )
+
+
+def fetch_closed_pnl(session=None, *, start_ms: int, end_ms: int) -> list[dict]:
+    return _fetch_windowed(
+        session,
+        start_ms=start_ms,
+        end_ms=end_ms,
+        fetch_page=_fetch_closed_pnl_page,
+    )

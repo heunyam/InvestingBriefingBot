@@ -1,58 +1,91 @@
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 
 from apps.briefing.app.models.order import Order
+from apps.briefing.app.utils.format import fmt_decimal, fmt_money, fmt_roe
 
 ZERO = Decimal("0")
-MONEY_Q = Decimal("0.0001")
 
 
-def _fmt_money(value: Decimal | None) -> str:
-    if value is None:
-        return "-"
-    d = Decimal(str(value)).quantize(MONEY_Q, rounding=ROUND_HALF_UP)
-    sign = "-" if d < ZERO else ""
-    d = abs(d)
-    text = format(d, "f")
-    if "." in text:
-        whole, frac = text.split(".", 1)
-        frac = frac[:4].rstrip("0")
-        whole = f"{int(whole):,}"
-        body = f"{whole}.{frac}" if frac else whole
-    else:
-        body = f"{int(text):,}"
-    return f"{sign}{body}"
+def _signed_delta(order: Order) -> Decimal:
+    long = (order.side == "BUY") ^ order.reduce_only
+    if order.reduce_only:
+        return -order.quantity if long else order.quantity
+    return order.quantity if long else -order.quantity
 
 
-def _fmt_qty(value: Decimal) -> str:
-    if value == value.to_integral_value():
-        return f"{int(value):,}"
-    return _fmt_money(value)
+def attach_position_context(orders: list[Order]) -> list[Order]:
+    by_symbol: dict[str, Decimal] = {}
+    avg_by_symbol: dict[str, Decimal] = {}
+    context: dict[str, dict] = {}
 
+    for order in sorted(
+        orders, key=lambda item: (item.filled_at, item.created_at, item.order_id)
+    ):
+        pos_before = by_symbol.get(order.symbol, ZERO)
+        delta = _signed_delta(order)
+        pos_after = pos_before + delta
+        before = abs(pos_before)
+        after = abs(pos_after)
 
-def _side_label(order: Order) -> str:
-    if order.side == "BUY":
-        return "매수"
-    return "매도"
+        if not order.reduce_only and pos_before != ZERO and (pos_before > ZERO) == (delta > ZERO):
+            avg = avg_by_symbol[order.symbol]
+            added = abs(delta)
+            avg = (before * avg + added * order.average_price) / (before + added)
+        elif not order.reduce_only and pos_before == ZERO:
+            avg = order.average_price
+        else:
+            avg = avg_by_symbol.get(order.symbol, order.average_price)
 
+        context[order.order_id] = {
+            "position_qty_before": before,
+            "position_qty_after": after,
+            "position_avg_price": avg,
+        }
+        by_symbol[order.symbol] = pos_after
+        if pos_after != ZERO:
+            avg_by_symbol[order.symbol] = avg
 
-def _role_label(order: Order) -> str:
-    return "청산" if order.reduce_only else "진입"
+    return [
+        order.model_copy(update=context.get(order.order_id, {})) for order in orders
+    ]
 
 
 def format_order_message(order: Order) -> str:
-    lines = [
-        f"{_role_label(order)} · {_side_label(order)} {order.symbol}",
-    ]
-    if order.leverage:
-        lines[0] += f" (x{order.leverage})"
-    lines.extend(
-        [
-            f"유형: {order.order_type}",
-            f"수량: {_fmt_qty(order.quantity)} · 가격: {_fmt_money(order.average_price)}",
-            f"수수료: {_fmt_money(order.fee)}",
-        ]
-    )
-    if order.reduce_only and order.realized_pnl is not None:
-        lines.append(f"실현손익: {_fmt_money(order.realized_pnl)}")
-    lines.append(f"체결: {order.filled_at.strftime('%Y-%m-%d %H:%M:%S')}")
+    long = (order.side == "BUY") ^ order.reduce_only
+    kr = "롱" if long else "숏"
+    dot = "🟢" if long else "🔴"
+    lev = f"(x{order.leverage})" if order.leverage else ""
+    price = fmt_decimal(order.average_price)
+    avg = fmt_decimal(order.position_avg_price or order.average_price)
+    when = order.filled_at.strftime("%Y-%m-%d %H:%M:%S")
+    symbol = f"{dot} {kr}: {order.symbol}{lev}"
+    before = order.position_qty_before
+    after = order.position_qty_after
+
+    if not order.reduce_only:
+        is_add = before is not None and before > ZERO
+        title = f"{kr} 추가 진입" if is_add else f"{kr} 진입"
+        qty = (
+            f"📦 수량: {fmt_decimal(before)} → {fmt_decimal(after)}"
+            if is_add and after is not None
+            else f"📦 수량: {fmt_decimal(order.quantity)}"
+        )
+        return "\n".join(
+            [title, "", symbol, f"📍 시장가: {price}", qty, f"💵 평단: {avg}", "", f"⏰ {when}"]
+        )
+
+    pnl = order.realized_pnl or ZERO
+    partial = after is not None and after > ZERO
+    if partial:
+        title = f"{kr} 분할 익절" if pnl >= ZERO else f"❌ {kr} 분할 손절"
+    else:
+        title = f"{kr} 익절" if pnl >= ZERO else f"❌ {kr} 손절"
+
+    lines = [title, "", symbol, f"📍 시장가: {price}"]
+    if partial and before is not None:
+        lines.append(f"📦 수량: {fmt_decimal(before)} → {fmt_decimal(after)}")
+    lines.append(f"💰 실현: {fmt_money(pnl)}")
+    if roe := fmt_roe(pnl, order.average_price, order.quantity, order.leverage):
+        lines.append(f"📈 ROE: {roe}")
+    lines.extend(["", f"⏰ {when}"])
     return "\n".join(lines)
