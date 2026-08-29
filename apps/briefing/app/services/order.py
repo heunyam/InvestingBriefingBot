@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from apps.briefing.app.collectors import bybit
 from apps.briefing.app.db.tables import Doc, get_db
-from apps.briefing.app.models.order import Order, all, save
+from apps.briefing.app.models.order import Order
 from apps.briefing.app.outbounds import discord
 from apps.briefing.app.utils.decimal import d
 from apps.briefing.app.utils.format import fmt_decimal, fmt_money, fmt_roe
@@ -147,14 +147,14 @@ def enrich_orders(*, start_ms: int, end_ms: int, session=None) -> dict:
     by_order_id = {str(row["orderId"]): row for row in rows if row.get("orderId")}
 
     updated = 0
-    for order in all():
+    for order in Order.all():
         if not order.reduce_only or order.realized_pnl is not None:
             continue
         row = by_order_id.get(order.order_id)
         if row is None:
             continue
         leverage = row.get("leverage")
-        save(
+        Order.save(
             order.model_copy(
                 update={
                     "realized_pnl": Decimal(str(row["closedPnl"])),
@@ -182,7 +182,7 @@ def notify_orders(orders: list[Order], *, stdout_only: bool = False) -> int:
     return posted
 
 
-def sync_all(*, backfill: bool = False, session=None) -> dict:
+def sync_all(*, backfill: bool = False, session=None, dry_run: bool = False) -> dict:
     end_ms = int(time.time() * 1000)
 
     if backfill:
@@ -211,9 +211,24 @@ def sync_all(*, backfill: bool = False, session=None) -> dict:
         if qty in (None, "") or d(qty) <= ZERO:
             continue
         order = map_order(row)
-        if save(order):
+        if dry_run:
+            if Order.load(order.order_id) is None:
+                new_orders.append(order)
+            saved += 1
+            continue
+        if Order.save(order):
             new_orders.append(order)
         saved += 1
+
+    if dry_run:
+        return {
+            "fetched": len(rows),
+            "saved": saved,
+            "new_orders": new_orders,
+            "enriched": {"fetched": 0, "updated": 0},
+            "start_ms": start_ms,
+            "end_ms": end_ms,
+        }
 
     get_db().table(META_TABLE).upsert(
         {"key": META_KEY, "last_end_ms": end_ms},

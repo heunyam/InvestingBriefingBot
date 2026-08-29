@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from apps.briefing.app.models.order import Order, all
+from apps.briefing.app.models.order import Order
 from apps.briefing.app.utils.format import fmt_decimal, fmt_pct
 
 ZERO = Decimal("0")
@@ -34,7 +34,7 @@ def summarize(
 
     n = wins = 0
     net_pnl = fees = ZERO
-    for order in orders if orders is not None else all():
+    for order in orders if orders is not None else Order.all():
         if not _in_period(order, start_ms, now_ms):
             continue
         if symbol and order.symbol != symbol:

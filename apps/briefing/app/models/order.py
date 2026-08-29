@@ -85,20 +85,20 @@ class Order(BaseModel):
         ..., title="동기화 시각", description="로컬 DB에 반영된 시각 (KST)."
     )
 
+    @classmethod
+    def save(cls, order: "Order") -> bool:
+        existing = cls.load(order.order_id)
+        doc = order.model_dump(mode="json")
+        orders_table().upsert(doc, Doc.order_id == doc["order_id"])
+        return existing is None
 
-def save(order: Order) -> bool:
-    existing = load(order.order_id)
-    doc = order.model_dump(mode="json")
-    orders_table().upsert(doc, Doc.order_id == doc["order_id"])
-    return existing is None
+    @classmethod
+    def load(cls, order_id: str) -> "Order | None":
+        rows = orders_table().search(Doc.order_id == order_id)
+        if not rows:
+            return None
+        return cls.model_validate(rows[0])
 
-
-def load(order_id: str) -> Order | None:
-    rows = orders_table().search(Doc.order_id == order_id)
-    if not rows:
-        return None
-    return Order.model_validate(rows[0])
-
-
-def all() -> list[Order]:
-    return [Order.model_validate(row) for row in orders_table().all()]
+    @classmethod
+    def all(cls) -> list["Order"]:
+        return [cls.model_validate(row) for row in orders_table().all()]
