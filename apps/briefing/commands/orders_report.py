@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 from apps.briefing.app.models.order import all
 from apps.briefing.app.outbounds import discord
-from apps.briefing.app.services import order_analytics, order_sync
+from apps.briefing.app.services import order, order_analytics
 
 
 def app(argv: list[str] | None = None) -> str:
@@ -26,15 +26,15 @@ def app(argv: list[str] | None = None) -> str:
     args = parser.parse_args(argv)
 
     if args.backfill:
-        result = order_sync.sync_all(backfill=True)
+        result = order.sync_all(backfill=True)
         print(
             f"backfill saved={result['saved']} enriched={result['enriched']['updated']}"
         )
     else:
         end_ms = int(time.time() * 1000)
-        start_ms = end_ms - order_sync.DEFAULT_LOOKBACK_MS
+        start_ms = end_ms - order.DEFAULT_LOOKBACK_MS
         print(
-            f"enriched={order_sync.enrich_orders(start_ms=start_ms, end_ms=end_ms)['updated']}"
+            f"enriched={order.enrich_orders(start_ms=start_ms, end_ms=end_ms)['updated']}"
         )
 
     text = order_analytics.format_report(

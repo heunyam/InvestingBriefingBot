@@ -7,13 +7,15 @@ from unittest.mock import patch
 
 import apps.briefing.app.db.tables as db
 from apps.briefing.app.models.order import Order, all, load, save
-from apps.briefing.app.services.order import map_order
 from apps.briefing.app.services.order_analytics import summarize
-from apps.briefing.app.services.order_message import (
+from apps.briefing.app.services.order import (
     attach_position_context,
+    enrich_orders,
     format_order_message,
+    map_order,
+    notify_orders,
+    sync_all,
 )
-from apps.briefing.app.services.order_sync import enrich_orders, notify_orders, sync_all
 
 KST = timezone(timedelta(hours=9))
 SYNCED_AT = datetime(2026, 8, 29, 10, 0, 0, tzinfo=KST)
@@ -99,18 +101,18 @@ class TestOrders(DbTestCase):
         self.assertEqual(len(all()), 1)
         self.assertEqual(load(order.order_id).quantity, Decimal("12"))
 
-    @patch("apps.briefing.app.services.order_sync.enrich_orders")
-    @patch("apps.briefing.app.services.order_sync._ms_now")
-    @patch("apps.briefing.app.services.order_sync.bybit.fetch_order_history")
-    def test_sync_all_mocked(self, mock_fetch, mock_now, mock_enrich):
-        mock_now.return_value = 1_700_000_000_000
+    @patch("apps.briefing.app.services.order.enrich_orders")
+    @patch("apps.briefing.app.services.order.time.time")
+    @patch("apps.briefing.app.services.order.bybit.fetch_order_history")
+    def test_sync_all_mocked(self, mock_fetch, mock_time, mock_enrich):
+        mock_time.return_value = 1_700_000_000
         mock_fetch.return_value = [ORDER_HISTORY_ROW]
         mock_enrich.return_value = {"fetched": 0, "updated": 0}
         result = sync_all()
         self.assertEqual(result["saved"], 1)
         self.assertEqual(len(all()), 1)
 
-    @patch("apps.briefing.app.services.order_sync.bybit.fetch_closed_pnl")
+    @patch("apps.briefing.app.services.order.bybit.fetch_closed_pnl")
     def test_enrich_sets_realized_pnl(self, mock_fetch):
         save(_order(order_id="exit-order-id", reduce_only=True))
         mock_fetch.return_value = [
@@ -134,7 +136,7 @@ class TestOrders(DbTestCase):
         self.assertTrue(save(order))
         self.assertFalse(save(order))
 
-    @patch("apps.briefing.app.services.order_sync.discord.send_trade")
+    @patch("apps.briefing.app.services.order.discord.send_trade")
     def test_notify_orders_posts_new_only(self, mock_send):
         save(_order(order_id="old"))
         order = _order(order_id="new")

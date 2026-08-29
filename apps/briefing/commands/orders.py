@@ -11,7 +11,7 @@ import json
 
 from dotenv import load_dotenv
 
-from apps.briefing.app.services.order_sync import notify_orders, sync_all
+from apps.briefing.app.services.order import notify_orders, sync_all
 
 
 def app(*, backfill: bool = False, stdout_only: bool = False) -> dict:
