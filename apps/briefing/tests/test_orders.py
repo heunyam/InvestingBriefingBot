@@ -9,7 +9,10 @@ import apps.briefing.app.db.tables as db
 from apps.briefing.app.models.order import Order, all, load, save
 from apps.briefing.app.services.order import map_order
 from apps.briefing.app.services.order_analytics import summarize
-from apps.briefing.app.services.order_message import attach_position_context, format_order_message
+from apps.briefing.app.services.order_message import (
+    attach_position_context,
+    format_order_message,
+)
 from apps.briefing.app.services.order_sync import enrich_orders, notify_orders, sync_all
 
 KST = timezone(timedelta(hours=9))

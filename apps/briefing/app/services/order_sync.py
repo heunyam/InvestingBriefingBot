@@ -6,7 +6,10 @@ from apps.briefing.app.db.tables import Doc, get_db
 from apps.briefing.app.models.order import Order, all, save
 from apps.briefing.app.outbounds import discord
 from apps.briefing.app.services.order import map_order
-from apps.briefing.app.services.order_message import attach_position_context, format_order_message
+from apps.briefing.app.services.order_message import (
+    attach_position_context,
+    format_order_message,
+)
 
 META_TABLE = "order_sync_meta"
 META_KEY = "bybit_order_history"
@@ -45,9 +48,7 @@ def _has_exec_qty(row: dict) -> bool:
 
 
 def enrich_orders(*, start_ms: int, end_ms: int, session=None) -> dict:
-    rows = bybit.fetch_closed_pnl(
-        session=session, start_ms=start_ms, end_ms=end_ms
-    )
+    rows = bybit.fetch_closed_pnl(session=session, start_ms=start_ms, end_ms=end_ms)
     by_order_id = {str(row["orderId"]): row for row in rows if row.get("orderId")}
 
     updated = 0
@@ -73,7 +74,9 @@ def enrich_orders(*, start_ms: int, end_ms: int, session=None) -> dict:
 
 def notify_orders(orders: list[Order], *, stdout_only: bool = False) -> int:
     posted = 0
-    for order in sorted(attach_position_context(orders), key=lambda item: item.filled_at):
+    for order in sorted(
+        attach_position_context(orders), key=lambda item: item.filled_at
+    ):
         content = format_order_message(order)
         if stdout_only:
             print("---")
@@ -106,9 +109,7 @@ def sync_all(*, backfill: bool = False, session=None) -> dict:
             "end_ms": end_ms,
         }
 
-    rows = bybit.fetch_order_history(
-        session=session, start_ms=start_ms, end_ms=end_ms
-    )
+    rows = bybit.fetch_order_history(session=session, start_ms=start_ms, end_ms=end_ms)
 
     new_orders: list[Order] = []
     saved = 0

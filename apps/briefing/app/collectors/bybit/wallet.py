@@ -1,4 +1,3 @@
-from decimal import Decimal
 from enum import StrEnum
 
 from pybit.unified_trading import HTTP
@@ -13,13 +12,15 @@ class AccountType(StrEnum):
 
 
 def _fetch_wallet_balance(session: HTTP) -> dict:
-    return session.get_wallet_balance(accountType=AccountType.UNIFIED)["result"]["list"][0]
+    return session.get_wallet_balance(accountType=AccountType.UNIFIED)["result"][
+        "list"
+    ][0]
 
 
 def _fetch_coins_balance(session: HTTP, account_type: AccountType) -> dict:
-    return session.get_coins_balance(
-        accountType=account_type, coin="USDT,BYUSDT"
-    )["result"]["balance"]
+    return session.get_coins_balance(accountType=account_type, coin="USDT,BYUSDT")[
+        "result"
+    ]["balance"]
 
 
 def fetch(session: HTTP | None = None) -> dict:

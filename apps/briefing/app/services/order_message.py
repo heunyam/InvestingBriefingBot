@@ -27,7 +27,11 @@ def attach_position_context(orders: list[Order]) -> list[Order]:
         before = abs(pos_before)
         after = abs(pos_after)
 
-        if not order.reduce_only and pos_before != ZERO and (pos_before > ZERO) == (delta > ZERO):
+        if (
+            not order.reduce_only
+            and pos_before != ZERO
+            and (pos_before > ZERO) == (delta > ZERO)
+        ):
             avg = avg_by_symbol[order.symbol]
             added = abs(delta)
             avg = (before * avg + added * order.average_price) / (before + added)
@@ -71,7 +75,16 @@ def format_order_message(order: Order) -> str:
             else f"📦 수량: {fmt_decimal(order.quantity)}"
         )
         return "\n".join(
-            [title, "", symbol, f"📍 시장가: {price}", qty, f"💵 평단: {avg}", "", f"⏰ {when}"]
+            [
+                title,
+                "",
+                symbol,
+                f"📍 시장가: {price}",
+                qty,
+                f"💵 평단: {avg}",
+                "",
+                f"⏰ {when}",
+            ]
         )
 
     pnl = order.realized_pnl or ZERO

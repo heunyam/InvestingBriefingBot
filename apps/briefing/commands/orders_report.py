@@ -27,11 +27,15 @@ def app(argv: list[str] | None = None) -> str:
 
     if args.backfill:
         result = order_sync.sync_all(backfill=True)
-        print(f"backfill saved={result['saved']} enriched={result['enriched']['updated']}")
+        print(
+            f"backfill saved={result['saved']} enriched={result['enriched']['updated']}"
+        )
     else:
         end_ms = int(time.time() * 1000)
         start_ms = end_ms - order_sync.DEFAULT_LOOKBACK_MS
-        print(f"enriched={order_sync.enrich_orders(start_ms=start_ms, end_ms=end_ms)['updated']}")
+        print(
+            f"enriched={order_sync.enrich_orders(start_ms=start_ms, end_ms=end_ms)['updated']}"
+        )
 
     text = order_analytics.format_report(
         order_analytics.summarize(
