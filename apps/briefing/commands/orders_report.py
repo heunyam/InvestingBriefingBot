@@ -2,7 +2,7 @@
 청산 주문 기반 성과 리포트 → DISCORD_DAILY_WEBHOOK_URL
 
 make orders-report
-make orders-report ARGS="--period 30d --stdout-only"
+make orders-report ARGS="--period 7d --stdout-only"
 make orders-report ARGS="--backfill"
 """
 
@@ -19,7 +19,7 @@ from apps.briefing.app.services import order, order_analytics
 
 def app(argv: list[str] | None = None) -> str:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--period", choices=("7d", "30d", "all"), default="7d")
+    parser.add_argument("--period", choices=("7d", "30d", "all"), default="30d")
     parser.add_argument("--symbol", default=None)
     parser.add_argument("--stdout-only", action="store_true")
     parser.add_argument("--backfill", action="store_true")

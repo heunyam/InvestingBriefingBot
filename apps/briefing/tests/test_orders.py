@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import apps.briefing.app.db.tables as db
 from apps.briefing.app.models.order import Order
-from apps.briefing.app.services.order_analytics import summarize
+from apps.briefing.app.services.order_analytics import format_report, summarize
 from apps.briefing.app.services.order import (
     attach_position_context,
     enrich_orders,
@@ -64,12 +64,13 @@ def _order(
     position_qty_before: Decimal | None = None,
     position_qty_after: Decimal | None = None,
     position_avg_price: Decimal | None = None,
+    symbol: str = "QQQUSDT",
 ) -> Order:
     if side is None:
         side = "SELL" if reduce_only else "BUY"
     return Order(
         order_id=order_id,
-        symbol="QQQUSDT",
+        symbol=symbol,
         side=side,
         reduce_only=reduce_only,
         order_type="Market",
@@ -142,6 +143,24 @@ class TestOrders(DbTestCase):
         stats = summarize(Order.all(), period="7d", now_ms=now_ms)
         self.assertEqual(stats["n"], 2)
         self.assertEqual(stats["net_pnl"], Decimal("5"))
+        self.assertEqual(stats["by_symbol"], [("QQQUSDT", Decimal("5"))])
+
+    def test_format_report_includes_symbol_pnl(self):
+        text = format_report(
+            {
+                "title": "최근 30일",
+                "n": 2,
+                "win_rate": Decimal("0.5"),
+                "net_pnl": Decimal("7.5"),
+                "fees": Decimal("0.2"),
+                "by_symbol": [
+                    ("BTCUSDT", Decimal("12.5")),
+                    ("QQQUSDT", Decimal("-5")),
+                ],
+            }
+        )
+        self.assertIn("[BTCUSDT] +$12.50", text)
+        self.assertIn("[QQQUSDT] -$5.00", text)
 
     def test_save_returns_true_only_for_new_order(self):
         order = map_order(ORDER_HISTORY_ROW, synced_at=SYNCED_AT)

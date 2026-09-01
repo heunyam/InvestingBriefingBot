@@ -1,7 +1,7 @@
 from datetime import date as Date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from apps.briefing.app.db.tables import asset_summary_table, Doc, weekly_table
 
@@ -48,6 +48,9 @@ class AssetSummary(BaseModel):
         return [cls.model_validate(row) for row in weekly_table().all()]
 
     @classmethod
-    def load_by_date_in_weekly(cls, date: Date) -> AssetSummary | None:
+    def load_by_date_in_weekly(cls, date: Date) -> "AssetSummary" | None:
         row = weekly_table().get(Doc.date == date.isoformat())
-        return cls.model_validate(row)
+        try:
+            return cls.model_validate(row)
+        except ValidationError:
+            return None
