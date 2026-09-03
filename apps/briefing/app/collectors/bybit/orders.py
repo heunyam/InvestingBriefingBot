@@ -1,4 +1,5 @@
-from apps.briefing.app.collectors.bybit.http import fetch_paginated
+from apps.briefing.app.collectors.bybit.http import fetch_paginated, rows, retry
+from apps.briefing.app.collectors.bybit.session import get_bybit_session
 
 PAGE_LIMIT = 50
 
@@ -16,6 +17,14 @@ def fetch_order_history(session=None, *, start_ms: int, end_ms: int) -> list[dic
             "orderStatus": "Filled",
         },
     )
+
+
+def fetch_order_by_id(session=None, *, order_id: str) -> dict | None:
+    """orderId 단건 조회. startTime/endTime 불필요."""
+    http = get_bybit_session(session)
+    resp = retry(lambda: http.get_order_history(category="linear", orderId=order_id))
+    items = rows(resp)
+    return items[0] if items else None
 
 
 def fetch_closed_pnl(session=None, *, start_ms: int, end_ms: int) -> list[dict]:

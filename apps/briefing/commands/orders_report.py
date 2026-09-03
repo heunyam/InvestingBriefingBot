@@ -31,11 +31,11 @@ def app(argv: list[str] | None = None) -> str:
             f"backfill saved={result['saved']} enriched={result['enriched']['updated']}"
         )
     else:
-        end_ms = int(time.time() * 1000)
-        start_ms = end_ms - order.DEFAULT_LOOKBACK_MS
-        print(
-            f"enriched={order.enrich_orders(start_ms=start_ms, end_ms=end_ms)['updated']}"
+        missing = order.sync_missing_from_closed_pnl()
+        enriched = order.enrich_orders(
+            start_ms=missing["start_ms"], end_ms=missing["end_ms"]
         )
+        print(f"missing={len(missing['new_orders'])} enriched={enriched['updated']}")
 
     text = order_analytics.format_report(
         order_analytics.summarize(

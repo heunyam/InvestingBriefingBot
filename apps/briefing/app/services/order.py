@@ -13,6 +13,7 @@ ZERO = Decimal(0)
 
 META_TABLE = "order_sync_meta"
 META_KEY = "bybit_order_history"
+CLOSED_PNL_META_KEY = "bybit_closed_pnl"
 DEFAULT_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000
 BACKFILL_LOOKBACK_MS = 2 * 365 * 24 * 60 * 60 * 1000
 
@@ -142,7 +143,46 @@ def format_order_message(order: Order) -> str:
     return "\n".join(lines)
 
 
+def sync_missing_from_closed_pnl(*, session=None) -> dict:
+    """closed-pnl(updatedTime)로 누락 체결을 찾아 order/history 단건 조회로 저장.
+
+    TP/SL처럼 createdTime이 과거인 주문을 new_orders와 같은 경로로 보완한다.
+    """
+    end_ms = int(time.time() * 1000)
+    meta_rows = get_db().table(META_TABLE).search(Doc.key == CLOSED_PNL_META_KEY)
+    last = meta_rows[0].get("last_end_ms") if meta_rows else None
+    start_ms = end_ms - DEFAULT_LOOKBACK_MS if last is None else last
+
+    pnl_rows = bybit.fetch_closed_pnl(session=session, start_ms=start_ms, end_ms=end_ms)
+    new_orders: list[Order] = []
+    for row in pnl_rows:
+        order_id = row.get("orderId")
+        if not order_id or Order.load(str(order_id)) is not None:
+            continue
+        history_row = bybit.fetch_order_by_id(session=session, order_id=str(order_id))
+        if history_row is None:
+            continue
+        qty = history_row.get("cumExecQty")
+        if qty in (None, "") or d(qty) <= ZERO:
+            continue
+        order = map_order(history_row)
+        if Order.save(order):
+            new_orders.append(order)
+
+    get_db().table(META_TABLE).upsert(
+        {"key": CLOSED_PNL_META_KEY, "last_end_ms": end_ms},
+        Doc.key == CLOSED_PNL_META_KEY,
+    )
+    return {
+        "fetched": len(pnl_rows),
+        "new_orders": new_orders,
+        "start_ms": start_ms,
+        "end_ms": end_ms,
+    }
+
+
 def enrich_orders(*, start_ms: int, end_ms: int, session=None) -> dict:
+    """DB에 있는 청산 주문에 closed-pnl의 realized_pnl / leverage를 보강한다."""
     rows = bybit.fetch_closed_pnl(session=session, start_ms=start_ms, end_ms=end_ms)
     by_order_id = {str(row["orderId"]): row for row in rows if row.get("orderId")}
 
@@ -168,11 +208,10 @@ def enrich_orders(*, start_ms: int, end_ms: int, session=None) -> dict:
 
 
 def notify_orders(orders: list[Order], *, stdout_only: bool = False) -> int:
+    by_id = {order.order_id: order for order in attach_position_context(Order.all())}
     posted = 0
-    for order in sorted(
-        attach_position_context(orders), key=lambda item: item.filled_at
-    ):
-        content = format_order_message(order)
+    for order in sorted(orders, key=lambda item: item.filled_at):
+        content = format_order_message(by_id.get(order.order_id, order))
         if stdout_only:
             print("---")
             print(content)
@@ -234,9 +273,17 @@ def sync_all(*, backfill: bool = False, session=None, dry_run: bool = False) -> 
         {"key": META_KEY, "last_end_ms": end_ms},
         Doc.key == META_KEY,
     )
-    enriched = enrich_orders(start_ms=start_ms, end_ms=end_ms, session=session)
+
+    missing = sync_missing_from_closed_pnl(session=session)
+    new_orders.extend(missing["new_orders"])
+    saved += len(missing["new_orders"])
+
+    enrich_start = min(start_ms, missing["start_ms"])
+    enriched = enrich_orders(start_ms=enrich_start, end_ms=end_ms, session=session)
+    new_orders = [Order.load(order.order_id) or order for order in new_orders]
+
     return {
-        "fetched": len(rows),
+        "fetched": len(rows) + missing["fetched"],
         "saved": saved,
         "new_orders": new_orders,
         "enriched": enriched,
