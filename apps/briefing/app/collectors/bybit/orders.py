@@ -20,7 +20,6 @@ def fetch_order_history(session=None, *, start_ms: int, end_ms: int) -> list[dic
 
 
 def fetch_order_by_id(session=None, *, order_id: str) -> dict | None:
-    """orderId 단건 조회. startTime/endTime 불필요."""
     http = get_bybit_session(session)
     resp = retry(lambda: http.get_order_history(category="linear", orderId=order_id))
     items = rows(resp)

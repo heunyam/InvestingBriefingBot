@@ -13,21 +13,22 @@ def collect_daily_data() -> AssetSummary:
     toss_data = toss.fetch()
     bybit_data = bybit.fetch()
 
-    exchange_rate = toss_data["exchange_rate"]
-
-    cash = toss_data["cash"] + bybit_data["cash"]
+    stock_cash = toss_data["cash"]
+    coin_cash = bybit_data["cash"]
+    cash = stock_cash + coin_cash
     stock = toss_data["stock"]
     coin = bybit_data["coin"]
-    total = cash + stock + coin
 
     now = kst_now()
     return AssetSummary(
         date=now.date(),
-        total=total,
+        total=cash + stock + coin,
         cash=cash,
+        stock_cash=stock_cash,
+        coin_cash=coin_cash,
         stock=stock,
         coin=coin,
-        exchange_rate=exchange_rate,
+        exchange_rate=toss_data["exchange_rate"],
         created_at=now,
     )
 
@@ -40,32 +41,24 @@ def format_message(asset: AssetSummary, prev: AssetSummary) -> str:
         value = to_decimal(value)
         prev_value = to_decimal(prev_value)
         diff = to_decimal(value - prev_value)
-
-        emoji = _trend_emoji(diff)
         percent = (
             to_decimal(diff / prev_value * 100) if prev_value > 0 else Decimal("0")
         )
+        return f"{value} {_trend_emoji(diff)} ({diff} / {percent}%)"
 
-        return f"{value} {emoji} ({diff} / {percent}%)"
-
-    total_line = _line(asset.total, prev.total)
-    cash_line = _line(asset.cash, prev.cash)
-    stock_line = _line(asset.stock, prev.stock)
-    coin_line = _line(asset.coin, prev.coin)
-
-    lines = [
-        "```",
-        f"Total: {total_line}",
-        "",
-        f"Cash:  {cash_line}",
-        f"Stock: {stock_line}",
-        f"Coin:  {coin_line}",
-        "",
-        f"Exchange Rate:  {asset.exchange_rate}",
-        "```",
-    ]
-
-    return "\n".join(lines)
+    return "\n".join(
+        [
+            "```",
+            f"Total: {_line(asset.total, prev.total)}",
+            "",
+            f"Cash:  {_line(asset.cash, prev.cash)}",
+            f"Stock: {_line(asset.stock, prev.stock)}",
+            f"Coin:  {_line(asset.coin, prev.coin)}",
+            "",
+            f"Exchange Rate:  {asset.exchange_rate}",
+            "```",
+        ]
+    )
 
 
 def run_daily():
