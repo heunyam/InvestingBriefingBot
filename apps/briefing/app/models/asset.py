@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date as Date, datetime
 from decimal import Decimal
 
@@ -8,11 +10,21 @@ from apps.briefing.app.db.tables import asset_summary_table, Doc, weekly_table
 
 class AssetSummary(BaseModel):
     date: Date = Field(..., description="영업일 (KST, 예전 파일명)")
-    total: Decimal = Field(
-        max_digits=50, decimal_places=35, description="총  총 금액(USD)"
-    )
+    total: Decimal = Field(max_digits=50, decimal_places=35, description="총 금액(USD)")
     cash: Decimal = Field(
         max_digits=50, decimal_places=35, description="현금 총 금액 (USD)"
+    )
+    stock_cash: Decimal | None = Field(
+        default=None,
+        max_digits=50,
+        decimal_places=35,
+        description="Stock 현금 (USD)",
+    )
+    coin_cash: Decimal | None = Field(
+        default=None,
+        max_digits=50,
+        decimal_places=35,
+        description="Coin 현금 (USD)",
     )
     stock: Decimal = Field(
         max_digits=50, decimal_places=35, description="주식 총 금액 (USD)"
@@ -20,7 +32,9 @@ class AssetSummary(BaseModel):
     coin: Decimal = Field(
         max_digits=50, decimal_places=35, description="암호화폐 총 금액 (USD)"
     )
-    exchange_rate: Decimal = Field(max_digits=12, decimal_places=2, description="환율")
+    exchange_rate: Decimal = Field(
+        max_digits=12, decimal_places=2, description="환율 USDKRW"
+    )
     created_at: datetime = Field(..., description="생성 시간")
 
     def save(self) -> None:
@@ -48,7 +62,7 @@ class AssetSummary(BaseModel):
         return [cls.model_validate(row) for row in weekly_table().all()]
 
     @classmethod
-    def load_by_date_in_weekly(cls, date: Date) -> "AssetSummary" | None:
+    def load_by_date_in_weekly(cls, date: Date) -> AssetSummary | None:
         row = weekly_table().get(Doc.date == date.isoformat())
         try:
             return cls.model_validate(row)
